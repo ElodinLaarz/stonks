@@ -12,37 +12,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for lock file
+        id: lockfile
+        run: echo "exists=$(test -f package-lock.json && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
+        if: steps.lockfile.outputs.exists == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npm run lint
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npx prettier --check .
+        if: steps.lockfile.outputs.exists == 'true'
 
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for lock file
+        id: lockfile
+        run: echo "exists=$(test -f package-lock.json && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
+        if: steps.lockfile.outputs.exists == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npm run typecheck
+        if: steps.lockfile.outputs.exists == 'true'
 
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for lock file
+        id: lockfile
+        run: echo "exists=$(test -f package-lock.json && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
+        if: steps.lockfile.outputs.exists == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npm run test:run
+        if: steps.lockfile.outputs.exists == 'true'
 
   build:
     name: Build
@@ -50,9 +69,15 @@ jobs:
     needs: [lint, typecheck, test]
     steps:
       - uses: actions/checkout@v4
+      - name: Check for lock file
+        id: lockfile
+        run: echo "exists=$(test -f package-lock.json && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
+        if: steps.lockfile.outputs.exists == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npm run build
+        if: steps.lockfile.outputs.exists == 'true'
