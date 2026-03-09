@@ -59,11 +59,11 @@ Detection signals used by the Auditor:
 
 ## Win Conditions
 
-| Agent | Win Condition |
-|---|---|
-| **Oracle** | Highest portfolio value at game end AND Auditor names someone else |
+| Agent              | Win Condition                                                         |
+| ------------------ | --------------------------------------------------------------------- |
+| **Oracle**         | Highest portfolio value at game end AND Auditor names someone else    |
 | **Regular Agents** | Highest portfolio value (Oracle excluded from this ranking if caught) |
-| **Auditor** | Correctly names the Oracle at game end |
+| **Auditor**        | Correctly names the Oracle at game end                                |
 
 This creates a three-way tension: the Oracle must profit to win the money game, but profiting too aggressively on future knowledge hands the Auditor their evidence. Regular agents benefit from the Oracle being caught, as it removes a dominant competitor from the rankings.
 
@@ -75,25 +75,25 @@ This creates a three-way tension: the Oracle must profit to win the money game, 
 
 Each agent's genome encodes a trading strategy as a set of floating-point weights and thresholds. These are the raw inputs to the genetic algorithm.
 
-| Gene | Description |
-|---|---|
+| Gene               | Description                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------- |
 | `signal_weights[]` | Weight given to each signal (momentum, reversion, volatility, etc.) in the buy/sell decision |
-| `lookback_window` | How many historical ticks to consider when computing signals |
-| `buy_threshold` | Minimum composite signal score required to trigger a buy |
-| `sell_threshold` | Minimum composite signal score required to trigger a sell |
-| `position_size` | Fraction of capital to deploy per trade (0.0–1.0) |
-| `risk_tolerance` | Willingness to hold losing positions; affects stop-loss behavior |
+| `lookback_window`  | How many historical ticks to consider when computing signals                                 |
+| `buy_threshold`    | Minimum composite signal score required to trigger a buy                                     |
+| `sell_threshold`   | Minimum composite signal score required to trigger a sell                                    |
+| `position_size`    | Fraction of capital to deploy per trade (0.0–1.0)                                            |
+| `risk_tolerance`   | Willingness to hold losing positions; affects stop-loss behavior                             |
 
 ### Oracle Concealment Layer
 
 The Oracle's genome extends the standard genome with additional concealment parameters:
 
-| Gene | Description |
-|---|---|
-| `noise_rate` | Probability of ignoring future knowledge on any given tick and trading from signals alone |
-| `aggression_cap` | Maximum fraction of capital deployed on a future-informed trade |
-| `style_target` | Whether to mirror another agent's behavioral fingerprint to blend in |
-| `delay_jitter` | Random delay (in ticks) before acting on future info to obscure timing |
+| Gene             | Description                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| `noise_rate`     | Probability of ignoring future knowledge on any given tick and trading from signals alone |
+| `aggression_cap` | Maximum fraction of capital deployed on a future-informed trade                           |
+| `style_target`   | Whether to mirror another agent's behavioral fingerprint to blend in                      |
+| `delay_jitter`   | Random delay (in ticks) before acting on future info to obscure timing                    |
 
 ---
 
@@ -126,20 +126,20 @@ Given enough generations, the following patterns are expected to emerge:
 
 ## Configurable Parameters
 
-| Parameter | Description / Default |
-|---|---|
-| `num_agents` | Number of trading agents. Default: 4. Range: 4–100 |
-| `num_stocks` | Number of stocks in the market. Default: 5 |
-| `oracle_lookahead` | How many ticks ahead the Oracle can see. Default: 5 |
-| `num_ticks` | Total length of a single game round in ticks. Default: 500 |
-| `rounds_per_generation` | Game rounds played before each GA evolution cycle. Default: 10 |
-| `mutation_rate` | Probability of each gene mutating per generation. Default: 0.1 |
-| `mutation_magnitude` | Std deviation of perturbation applied to mutated gene. Default: 0.05 |
-| `starting_capital` | Each agent's initial portfolio value. Default: 10,000 |
-| `simulation_speed` | Ticks per second for real-time display. Default: 5 |
-| `stock_volatility` | Annualized volatility parameter for GBM price model. Default: 0.2 |
-| `shock_frequency` | Average ticks between random price shock events. Default: 100 |
-| `auditor_strategy` | Rule-based (v1) or evolved (v2). Default: rule-based |
+| Parameter               | Description / Default                                                |
+| ----------------------- | -------------------------------------------------------------------- |
+| `num_agents`            | Number of trading agents. Default: 4. Range: 4–100                   |
+| `num_stocks`            | Number of stocks in the market. Default: 5                           |
+| `oracle_lookahead`      | How many ticks ahead the Oracle can see. Default: 5                  |
+| `num_ticks`             | Total length of a single game round in ticks. Default: 500           |
+| `rounds_per_generation` | Game rounds played before each GA evolution cycle. Default: 10       |
+| `mutation_rate`         | Probability of each gene mutating per generation. Default: 0.1       |
+| `mutation_magnitude`    | Std deviation of perturbation applied to mutated gene. Default: 0.05 |
+| `starting_capital`      | Each agent's initial portfolio value. Default: 10,000                |
+| `simulation_speed`      | Ticks per second for real-time display. Default: 5                   |
+| `stock_volatility`      | Annualized volatility parameter for GBM price model. Default: 0.2    |
+| `shock_frequency`       | Average ticks between random price shock events. Default: 100        |
+| `auditor_strategy`      | Rule-based (v1) or evolved (v2). Default: rule-based                 |
 
 ---
 
@@ -160,14 +160,14 @@ For v1, the core engine is tick-based and runs entirely client-side in TypeScrip
 
 The UI is designed for real-time observation. Key panels:
 
-| Panel | Description |
-|---|---|
-| **Stock Price Chart** | Multi-line chart of all stock prices over time. Live-updating. |
-| **Portfolio Race** | Stacked line or bar chart of each agent's portfolio value over time. |
-| **Trade Feed** | Scrolling real-time log of buys/sells with agent ID, stock, and size. |
-| **Auditor Panel** | Suspicion meter bar chart per agent, updating each tick. |
-| **Generation Log** | Timeline of evolution events — who was culled, who survived, mutations applied. |
-| **Oracle Reveal** | At game end, the Oracle is unmasked and the Auditor's accusation is shown. |
+| Panel                 | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| **Stock Price Chart** | Multi-line chart of all stock prices over time. Live-updating.                  |
+| **Portfolio Race**    | Stacked line or bar chart of each agent's portfolio value over time.            |
+| **Trade Feed**        | Scrolling real-time log of buys/sells with agent ID, stock, and size.           |
+| **Auditor Panel**     | Suspicion meter bar chart per agent, updating each tick.                        |
+| **Generation Log**    | Timeline of evolution events — who was culled, who survived, mutations applied. |
+| **Oracle Reveal**     | At game end, the Oracle is unmasked and the Auditor's accusation is shown.      |
 
 ### Control Panel
 
@@ -183,14 +183,14 @@ Exposed controls available before and during a simulation run:
 
 ## Phased Build Plan
 
-| Phase | Scope |
-|---|---|
-| **1 — Core** | Stock price engine + basic agent trading + Oracle with lookahead. No GA, no Auditor. Observe prices and trades. |
-| **2 — Auditor** | Add rule-based Auditor with suspicion scores. Visualize the Auditor panel. Run end-game reveal. |
-| **3 — GA** | Add genetic algorithm evolution loop. Observe strategy emergence. Add generation log panel. |
-| **4 — Arms Race** | Co-evolve the Auditor's detection strategy alongside agents. Oracle concealment layer also evolves. Full arms race dynamics. |
-| **5 — Polish** | Full UI polish, parameter controls, shareable links, performance optimization for 100-agent simulations. |
-| **6 — Next-Gen Server** | Migrate simulation engine to a Golang backend with an HTMX frontend to enable massive multiplayer scaling. |
+| Phase                   | Scope                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **1 — Core**            | Stock price engine + basic agent trading + Oracle with lookahead. No GA, no Auditor. Observe prices and trades.              |
+| **2 — Auditor**         | Add rule-based Auditor with suspicion scores. Visualize the Auditor panel. Run end-game reveal.                              |
+| **3 — GA**              | Add genetic algorithm evolution loop. Observe strategy emergence. Add generation log panel.                                  |
+| **4 — Arms Race**       | Co-evolve the Auditor's detection strategy alongside agents. Oracle concealment layer also evolves. Full arms race dynamics. |
+| **5 — Polish**          | Full UI polish, parameter controls, shareable links, performance optimization for 100-agent simulations.                     |
+| **6 — Next-Gen Server** | Migrate simulation engine to a Golang backend with an HTMX frontend to enable massive multiplayer scaling.                   |
 
 ---
 
@@ -200,52 +200,52 @@ All code in this project must be written in TypeScript with strict mode enabled.
 
 ### Language & Toolchain
 
-| Tool | Requirement |
-|---|---|
-| **Language** | TypeScript 5.x. No plain `.js` files permitted in `src/`. All type declarations must be explicit — avoid `any` and `unknown` unless unavoidable, and document exceptions inline. |
-| **tsconfig** | `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `noImplicitReturns: true`, `noFallthroughCasesInSwitch: true`, `target: ES2022`, `moduleResolution: bundler`. |
-| **Build tooling** | Vite 5.x. Use `vite.config.ts` (not `.js`). The simulation engine module must be importable independently of React so it can be unit-tested in isolation. |
-| **Runtime target** | Modern evergreen browsers only (Chrome 110+, Firefox 115+, Safari 16+). No IE11 or legacy polyfills. |
+| Tool               | Requirement                                                                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Language**       | TypeScript 5.x. No plain `.js` files permitted in `src/`. All type declarations must be explicit — avoid `any` and `unknown` unless unavoidable, and document exceptions inline.                    |
+| **tsconfig**       | `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `noImplicitReturns: true`, `noFallthroughCasesInSwitch: true`, `target: ES2022`, `moduleResolution: bundler`. |
+| **Build tooling**  | Vite 5.x. Use `vite.config.ts` (not `.js`). The simulation engine module must be importable independently of React so it can be unit-tested in isolation.                                           |
+| **Runtime target** | Modern evergreen browsers only (Chrome 110+, Firefox 115+, Safari 16+). No IE11 or legacy polyfills.                                                                                                |
 
 ### Linting & Formatting
 
-| Tool | Configuration |
-|---|---|
-| **ESLint** | ESLint 9.x with flat config (`eslint.config.ts`). Extends: `@typescript-eslint/recommended-type-checked`, `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-import`. Key rules: `no-console` (warn), `@typescript-eslint/no-floating-promises` (error), `react-hooks/exhaustive-deps` (error). |
-| **Prettier** | Prettier 3.x. Config: `semi: true`, `singleQuote: true`, `tabWidth: 2`, `printWidth: 100`, `trailingComma: "all"`. Prettier runs as an ESLint plugin (`eslint-plugin-prettier`) so there is a single lint+format pass. |
-| **Git hooks** | Husky + lint-staged. Pre-commit: ESLint + Prettier on staged files. Pre-push: full type-check (`tsc --noEmit`) + unit test suite. Commits are blocked if any check fails. |
+| Tool          | Configuration                                                                                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ESLint**    | ESLint 9.x with flat config (`eslint.config.ts`). Extends: `@typescript-eslint/recommended-type-checked`, `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-import`. Key rules: `no-console` (warn), `@typescript-eslint/no-floating-promises` (error), `react-hooks/exhaustive-deps` (error). |
+| **Prettier**  | Prettier 3.x. Config: `semi: true`, `singleQuote: true`, `tabWidth: 2`, `printWidth: 100`, `trailingComma: "all"`. Prettier runs as an ESLint plugin (`eslint-plugin-prettier`) so there is a single lint+format pass.                                                                                          |
+| **Git hooks** | Husky + lint-staged. Pre-commit: ESLint + Prettier on staged files. Pre-push: full type-check (`tsc --noEmit`) + unit test suite. Commits are blocked if any check fails.                                                                                                                                       |
 
 ### Project Structure
 
 The codebase is split into two distinct layers that must not be coupled in the wrong direction: the simulation engine (pure TypeScript, no React) and the UI layer (React components). This separation allows the engine to be unit-tested independently and potentially extracted into a shared library.
 
-| Directory | Contents |
-|---|---|
-| `src/engine/` | Pure simulation logic: tick engine, stock price model, agent runner, GA loop, Auditor. Zero React imports. All public interfaces exported via `index.ts`. |
-| `src/engine/types.ts` | All shared domain types: `Agent`, `Genome`, `Stock`, `Trade`, `Tick`, `AuditorState`, `GameConfig`. Single source of truth — no duplicate type definitions allowed. |
-| `src/components/` | React components. One component per file, filename matches component name (PascalCase). No business logic — components read state and fire callbacks only. |
-| `src/hooks/` | Custom React hooks that bridge the engine and UI. `useSimulation` is the primary hook: owns the engine instance, drives the tick loop via `requestAnimationFrame`, and exposes read-only state snapshots. |
-| `src/store/` | Zustand store for UI state (panel visibility, selected agent, config panel values). Simulation state is NOT stored here — it lives in the engine and is passed through `useSimulation`. |
-| `src/engine/__tests__/` | Vitest unit tests co-located with the engine. Component tests live in `src/components/__tests__/` using React Testing Library. |
+| Directory               | Contents                                                                                                                                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/engine/`           | Pure simulation logic: tick engine, stock price model, agent runner, GA loop, Auditor. Zero React imports. All public interfaces exported via `index.ts`.                                                 |
+| `src/engine/types.ts`   | All shared domain types: `Agent`, `Genome`, `Stock`, `Trade`, `Tick`, `AuditorState`, `GameConfig`. Single source of truth — no duplicate type definitions allowed.                                       |
+| `src/components/`       | React components. One component per file, filename matches component name (PascalCase). No business logic — components read state and fire callbacks only.                                                |
+| `src/hooks/`            | Custom React hooks that bridge the engine and UI. `useSimulation` is the primary hook: owns the engine instance, drives the tick loop via `requestAnimationFrame`, and exposes read-only state snapshots. |
+| `src/store/`            | Zustand store for UI state (panel visibility, selected agent, config panel values). Simulation state is NOT stored here — it lives in the engine and is passed through `useSimulation`.                   |
+| `src/engine/__tests__/` | Vitest unit tests co-located with the engine. Component tests live in `src/components/__tests__/` using React Testing Library.                                                                            |
 
 ### Naming & Code Style
 
-| Construct | Convention |
-|---|---|
-| **Types & interfaces** | PascalCase. Use `interface` for object shapes that may be extended; use `type` for unions, intersections, and aliases. No `I`-prefix on interfaces. |
-| **Functions & variables** | camelCase. Prefer `const` over `let`. Never use `var`. Prefer named exports over default exports in engine code; default exports are acceptable for React components. |
-| **Constants** | `SCREAMING_SNAKE_CASE` for true module-level constants (`DEFAULT_CAPITAL`, `MAX_AGENTS`). camelCase for local consts that are just immutable bindings. |
-| **React components** | Functional components only — no class components. Props interface named `[ComponentName]Props`. Prefer composition over prop drilling deeper than 2 levels; use context or Zustand for shared UI state. |
-| **Enums** | Prefer `const enum` or union string literals (`type Action = "buy" \| "sell" \| "hold"`) over plain `enum`. Avoid numeric enums. |
+| Construct                 | Convention                                                                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Types & interfaces**    | PascalCase. Use `interface` for object shapes that may be extended; use `type` for unions, intersections, and aliases. No `I`-prefix on interfaces.                                                     |
+| **Functions & variables** | camelCase. Prefer `const` over `let`. Never use `var`. Prefer named exports over default exports in engine code; default exports are acceptable for React components.                                   |
+| **Constants**             | `SCREAMING_SNAKE_CASE` for true module-level constants (`DEFAULT_CAPITAL`, `MAX_AGENTS`). camelCase for local consts that are just immutable bindings.                                                  |
+| **React components**      | Functional components only — no class components. Props interface named `[ComponentName]Props`. Prefer composition over prop drilling deeper than 2 levels; use context or Zustand for shared UI state. |
+| **Enums**                 | Prefer `const enum` or union string literals (`type Action = "buy" \| "sell" \| "hold"`) over plain `enum`. Avoid numeric enums.                                                                        |
 
 ### Testing
 
-| Area | Approach |
-|---|---|
-| **Framework** | Vitest for all unit and integration tests (native TypeScript support, compatible with Vite config). React Testing Library for component tests. No Jest. |
-| **Engine coverage** | 80% line coverage minimum for `src/engine/`. Key targets: price model determinism, GA selection/mutation correctness, Auditor scoring logic, Oracle lookahead isolation. |
-| **Determinism** | The engine must be fully deterministic given a fixed seed. Use a seeded PRNG (e.g. Xoshiro128+) rather than `Math.random()`. Tests must seed the PRNG explicitly and assert exact output sequences. |
-| **Component tests** | Test observable behavior, not implementation details. Mock the `useSimulation` hook to provide controlled state snapshots. Avoid snapshot testing for simulation output (too volatile). |
+| Area                | Approach                                                                                                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Framework**       | Vitest for all unit and integration tests (native TypeScript support, compatible with Vite config). React Testing Library for component tests. No Jest.                                             |
+| **Engine coverage** | 80% line coverage minimum for `src/engine/`. Key targets: price model determinism, GA selection/mutation correctness, Auditor scoring logic, Oracle lookahead isolation.                            |
+| **Determinism**     | The engine must be fully deterministic given a fixed seed. Use a seeded PRNG (e.g. Xoshiro128+) rather than `Math.random()`. Tests must seed the PRNG explicitly and assert exact output sequences. |
+| **Component tests** | Test observable behavior, not implementation details. Mock the `useSimulation` hook to provide controlled state snapshots. Avoid snapshot testing for simulation output (too volatile).             |
 
 ### Git & Commit Standards
 
@@ -256,5 +256,3 @@ All commits must follow the [Conventional Commits](https://www.conventionalcommi
 - `chore(tooling): add Husky pre-push hook`
 
 Branch naming: `feature/short-description`, `fix/short-description`, `chore/short-description`. Squash merge to main; no merge commits on main.
-
-
