@@ -1,0 +1,2 @@
+# stonks
+stock trading game
