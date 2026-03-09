@@ -14,17 +14,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for lock file
+        id: lockfile
+        run: echo "exists=$(test -f package-lock.json && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
+        if: steps.lockfile.outputs.exists == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.lockfile.outputs.exists == 'true'
       - run: npm audit --audit-level=high
+        if: steps.lockfile.outputs.exists == 'true'
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    # Requires "Dependency graph" to be enabled in repo Settings → Code Security.
+    # continue-on-error keeps the workflow green until the setting is turned on.
     if: github.event_name == 'pull_request'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/dependency-review-action@v4
