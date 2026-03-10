@@ -44,13 +44,15 @@ describe('tickMarket determinism', () => {
   it('produces identical results for the same seed (golden output)', () => {
     // High shockFrequency to eliminate shocks from this golden test.
     const config: SimConfig = { ...DEFAULT_SIM_CONFIG, seed: 1, shockFrequency: 999_999 };
-    const GOLDEN_CLOSE = 90.15584304239931;
+    const GOLDEN_CLOSE = 106.305855811421;
 
     const market = runMarket(config, 100);
     const stock0 = market.stocks[0]!;
     const close = stock0.bars[stock0.bars.length - 1]!.close;
 
-    expect(close).toBe(GOLDEN_CLOSE);
+    // toBeCloseTo avoids brittleness from floating-point differences across
+    // JS engine versions; 10 decimal places is far tighter than any real drift.
+    expect(close).toBeCloseTo(GOLDEN_CLOSE, 10);
   });
 
   it('two independent runs with the same seed are identical', () => {
@@ -133,6 +135,30 @@ describe('tickMarket config', () => {
     for (const bar of stock.bars) {
       expect(bar.close).toBeCloseTo(100, 10);
     }
+  });
+
+  it('throws when shockFrequency is zero', () => {
+    const config: SimConfig = { ...DEFAULT_SIM_CONFIG, shockFrequency: 0 };
+    const market = createMarket(config);
+    const prng = createPrng(config.seed);
+    expect(() => tickMarket(market, config, prng)).toThrow(RangeError);
+  });
+
+  it('throws when shockFrequency is negative', () => {
+    const config: SimConfig = { ...DEFAULT_SIM_CONFIG, shockFrequency: -1 };
+    const market = createMarket(config);
+    const prng = createPrng(config.seed);
+    expect(() => tickMarket(market, config, prng)).toThrow(RangeError);
+  });
+
+  it('throws when stockConfigs length mismatches state', () => {
+    const market = createMarket(DEFAULT_SIM_CONFIG); // 5 stocks
+    const prng = createPrng(DEFAULT_SIM_CONFIG.seed);
+    const mismatchConfig: SimConfig = {
+      ...DEFAULT_SIM_CONFIG,
+      stockConfigs: [{ id: 'X', name: 'X', initialPrice: 100, volatility: 0.2, drift: 0 }],
+    };
+    expect(() => tickMarket(market, mismatchConfig, prng)).toThrow(RangeError);
   });
 
   it('respects per-stock initialPrice', () => {

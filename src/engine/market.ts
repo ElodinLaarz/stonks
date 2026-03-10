@@ -66,7 +66,20 @@ export function tickMarket(
   config: SimConfig,
   prng: PrngState,
 ): [MarketState, PrngState] {
+  if (!Number.isFinite(config.shockFrequency) || config.shockFrequency <= 0) {
+    throw new RangeError(
+      `tickMarket: shockFrequency must be a finite positive number, got ${config.shockFrequency}`,
+    );
+  }
+
   const stockConfigs = config.stockConfigs ?? buildDefaultStockConfigs(config);
+  if (stockConfigs.length !== state.stocks.length) {
+    throw new RangeError(
+      `tickMarket: stockConfigs.length (${stockConfigs.length}) !== state.stocks.length (${state.stocks.length}). ` +
+        `Pass the same config to createMarket and tickMarket.`,
+    );
+  }
+
   let p = prng;
   const newTick = state.tick + 1;
 
@@ -84,12 +97,11 @@ export function tickMarket(
     shockMultiplier = Math.exp(SHOCK_SIGMA * z);
   }
 
+  // Push a new bar onto each stock's bars array (O(1) amortized).
+  // stockConfigs[i] and stock.bars are always in bounds: length equality is
+  // enforced above, and createMarket guarantees at least one bar per stock.
   const newStocks: Stock[] = state.stocks.map((stock, i) => {
-    // i is always in bounds — stockConfigs is built from the same numStocks.
-
     const sc = stockConfigs[i]!;
-    // bars is never empty: createMarket always adds an initial bar.
-
     const prevClose = stock.bars[stock.bars.length - 1]!.close;
 
     let z: number;
@@ -111,12 +123,9 @@ export function tickMarket(
 
     const newBar: PriceBar = { tick: newTick, open, high, low, close: newClose };
 
-    return {
-      id: stock.id,
-      name: stock.name,
-      initialPrice: stock.initialPrice,
-      bars: [...stock.bars, newBar],
-    };
+    // Append in place to avoid copying the full bars history each tick.
+    stock.bars.push(newBar);
+    return stock;
   });
 
   return [{ tick: newTick, stocks: newStocks }, p];

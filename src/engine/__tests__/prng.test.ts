@@ -30,9 +30,9 @@ describe('createPrng', () => {
 describe('nextFloat', () => {
   it('produces golden output sequence for seed 42', () => {
     const expected = [
-      0.2270471309311688, 0.6324185812845826, 0.007683016359806061, 0.25271762418560684,
-      0.4581511551514268, 0.07131389644928277, 0.8261402230709791, 0.41297312430106103,
-      0.116128423018381, 0.20309243607334793,
+      0.9912137037608773, 0.2961617140099406, 0.4880494561512023, 0.6134312842041254,
+      0.0722450080793351, 0.8027467406354845, 0.11665430176071823, 0.8107217408251017,
+      0.8094386181328446, 0.19368571927770972,
     ];
     let state = createPrng(42);
     for (const exp of expected) {
@@ -96,6 +96,10 @@ describe('nextFloatRange', () => {
 });
 
 describe('nextInt', () => {
+  it('throws when hi < lo', () => {
+    expect(() => nextInt(createPrng(1), 5, 3)).toThrow(RangeError);
+  });
+
   it('all outputs are in [lo, hi] inclusive', () => {
     let state = createPrng(3);
     for (let i = 0; i < 1_000; i++) {

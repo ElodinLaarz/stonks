@@ -12,22 +12,33 @@ export interface PrngState {
 }
 
 /**
- * SplitMix32 — expands a single 32-bit seed into one uint32 output.
- * Used internally to initialize the four Xoshiro128+ state words.
+ * SplitMix32 single step — advances the seed by the golden-ratio constant and
+ * returns [nextSeed, mixedOutput]. Threading the seed (rather than re-hashing
+ * the previous output) avoids correlation between consecutive state words.
  */
-export function splitMix32(seed: number): number {
-  let z = (seed + 0x9e3779b9) >>> 0;
+function splitMix32Step(seed: number): [number, number] {
+  const next = (seed + 0x9e3779b9) >>> 0;
+  let z = next;
   z = Math.imul(z ^ (z >>> 16), 0x85ebca6b) >>> 0;
   z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35) >>> 0;
-  return (z ^ (z >>> 16)) >>> 0;
+  return [next, (z ^ (z >>> 16)) >>> 0];
+}
+
+/**
+ * Public single-output variant for external callers (e.g. tests that need a
+ * deterministic hash of a number). Not used for seeding internally.
+ */
+export function splitMix32(seed: number): number {
+  return splitMix32Step(seed >>> 0)[1];
 }
 
 /** Create a new PRNG from a 32-bit integer seed. */
 export function createPrng(seed: number): PrngState {
-  const s0 = splitMix32(seed >>> 0);
-  const s1 = splitMix32(s0);
-  const s2 = splitMix32(s1);
-  const s3 = splitMix32(s2);
+  const seed0 = seed >>> 0;
+  const [seed1, s0] = splitMix32Step(seed0);
+  const [seed2, s1] = splitMix32Step(seed1);
+  const [seed3, s2] = splitMix32Step(seed2);
+  const [, s3] = splitMix32Step(seed3);
   return { s: [s0, s1, s2, s3] };
 }
 
@@ -61,8 +72,26 @@ export function nextFloatRange(state: PrngState, lo: number, hi: number): [PrngS
   return [newState, lo + f * (hi - lo)];
 }
 
-/** Returns [newState, integer in [lo, hi] inclusive]. */
+/**
+ * Returns [newState, integer in [lo, hi] inclusive].
+ *
+ * Uses rejection sampling to eliminate modulo bias: draws are discarded if
+ * they fall in the remainder region that would over-represent low values.
+ * The loop iterates at most twice on average for any range size.
+ */
 export function nextInt(state: PrngState, lo: number, hi: number): [PrngState, number] {
-  const [newState, f] = nextFloat(state);
-  return [newState, Math.min(hi, Math.floor(lo + f * (hi - lo + 1)))];
+  if (hi < lo) {
+    throw new RangeError(`nextInt: hi (${hi}) must be >= lo (${lo})`);
+  }
+  const span = hi - lo + 1;
+  // Largest multiple of span that fits in [0, 2^32): values >= limit are rejected.
+  const limit = Math.floor(0x100000000 / span) * span;
+  let p = state;
+  for (;;) {
+    let u32: number;
+    [p, u32] = nextUint32(p);
+    if (u32 < limit) {
+      return [p, lo + (u32 % span)];
+    }
+  }
 }

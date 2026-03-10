@@ -24,7 +24,12 @@ export interface Stock {
   readonly id: StockId;
   readonly name: string;
   readonly initialPrice: number;
-  readonly bars: readonly PriceBar[];
+  /**
+   * Price history, append-only. `tickMarket` pushes to this array in place
+   * (O(1) amortized) rather than copying the entire history each tick.
+   * Callers must not mutate this array directly.
+   */
+  readonly bars: PriceBar[];
 }
 
 export interface MarketState {
