@@ -35,6 +35,8 @@ export interface Stock {
 export interface MarketState {
   readonly tick: Tick;
   readonly stocks: readonly Stock[];
+  /** Resolved stock configurations, computed once at market creation. */
+  readonly stockConfigs: readonly StockConfig[];
 }
 
 export interface SimConfig {

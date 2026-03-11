@@ -21,8 +21,8 @@ function boxMuller(prng: PrngState): [PrngState, number] {
   let u2: number;
   [p, u1] = nextFloat(p);
   [p, u2] = nextFloat(p);
-  // Guard against log(0); u1 = 0 has probability 1/2^32.
-  if (u1 === 0) u1 = Number.EPSILON;
+  // Guard against log(0); clamp to smallest positive value representable by nextFloat (1/2^32).
+  if (u1 === 0) u1 = 1 / 0x100000000;
   const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   return [p, z];
 }
@@ -39,6 +39,11 @@ function buildDefaultStockConfigs(config: SimConfig): readonly StockConfig[] {
 
 /** Initialize market state. PRNG is not consumed; initial bars are deterministic. */
 export function createMarket(config: SimConfig): MarketState {
+  if (config.stockConfigs !== undefined && config.stockConfigs.length !== config.numStocks) {
+    throw new Error(
+      `Inconsistent market configuration: numStocks (${config.numStocks}) does not match stockConfigs length (${config.stockConfigs.length}).`,
+    );
+  }
   const stockConfigs = config.stockConfigs ?? buildDefaultStockConfigs(config);
 
   const stocks: readonly Stock[] = stockConfigs.map((sc) => {
@@ -57,7 +62,7 @@ export function createMarket(config: SimConfig): MarketState {
     };
   });
 
-  return { tick: 0, stocks };
+  return { tick: 0, stocks, stockConfigs };
 }
 
 /** Advance market one tick. Returns updated market state and advanced PRNG. */
@@ -72,13 +77,8 @@ export function tickMarket(
     );
   }
 
-  const stockConfigs = config.stockConfigs ?? buildDefaultStockConfigs(config);
-  if (stockConfigs.length !== state.stocks.length) {
-    throw new RangeError(
-      `tickMarket: stockConfigs.length (${stockConfigs.length}) !== state.stocks.length (${state.stocks.length}). ` +
-        `Pass the same config to createMarket and tickMarket.`,
-    );
-  }
+  // stockConfigs are resolved once at createMarket — no per-tick rebuild needed.
+  const { stockConfigs } = state;
 
   let p = prng;
   const newTick = state.tick + 1;
@@ -88,7 +88,7 @@ export function tickMarket(
   let shockMultiplier = 1;
   let shockRoll: number;
   [p, shockRoll] = nextFloat(p);
-  if (shockRoll < 1 / config.shockFrequency) {
+  if (state.stocks.length > 0 && shockRoll < 1 / config.shockFrequency) {
     let idx: number;
     [p, idx] = nextInt(p, 0, state.stocks.length - 1);
     shockStockIndex = idx;
@@ -128,5 +128,5 @@ export function tickMarket(
     return stock;
   });
 
-  return [{ tick: newTick, stocks: newStocks }, p];
+  return [{ tick: newTick, stocks: newStocks, stockConfigs }, p];
 }

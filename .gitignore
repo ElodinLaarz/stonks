@@ -36,3 +36,7 @@ coverage/
 # AI assistant files
 CLAUDE.md
 GEMINI.md
+.claude/
+
+# Husky generated
+.husky/_/

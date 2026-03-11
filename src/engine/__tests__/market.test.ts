@@ -151,14 +151,13 @@ describe('tickMarket config', () => {
     expect(() => tickMarket(market, config, prng)).toThrow(RangeError);
   });
 
-  it('throws when stockConfigs length mismatches state', () => {
-    const market = createMarket(DEFAULT_SIM_CONFIG); // 5 stocks
-    const prng = createPrng(DEFAULT_SIM_CONFIG.seed);
-    const mismatchConfig: SimConfig = {
+  it('throws when stockConfigs length mismatches numStocks', () => {
+    const config: SimConfig = {
       ...DEFAULT_SIM_CONFIG,
+      numStocks: 5,
       stockConfigs: [{ id: 'X', name: 'X', initialPrice: 100, volatility: 0.2, drift: 0 }],
     };
-    expect(() => tickMarket(market, mismatchConfig, prng)).toThrow(RangeError);
+    expect(() => createMarket(config)).toThrow(Error);
   });
 
   it('respects per-stock initialPrice', () => {
@@ -173,5 +172,49 @@ describe('tickMarket config', () => {
     const market = createMarket(config);
     expect(market.stocks[0]!.bars[0]!.close).toBe(50);
     expect(market.stocks[1]!.bars[0]!.close).toBe(200);
+  });
+});
+
+describe('tickMarket shock events', () => {
+  it('shock occurs deterministically with shockFrequency=1 (every tick)', () => {
+    // Zero volatility + zero drift: any price change must come from the shock path.
+    const config: SimConfig = {
+      ...DEFAULT_SIM_CONFIG,
+      seed: 42,
+      numStocks: 1,
+      shockFrequency: 1,
+      stockConfigs: [{ id: 'S', name: 'S', initialPrice: 100, volatility: 0, drift: 0 }],
+    };
+    const market = runMarket(config, 1);
+    const close = market.stocks[0]!.bars[1]!.close;
+
+    // Price must have deviated from 100 due to the shock multiplier.
+    expect(close).not.toBeCloseTo(100, 5);
+    // PRNG advancement is deterministic: two runs with the same seed agree.
+    const market2 = runMarket(config, 1);
+    expect(market2.stocks[0]!.bars[1]!.close).toBe(close);
+  });
+
+  it('only the shocked stock changes price (zero-vol single-stock sanity)', () => {
+    // With two zero-vol stocks and shockFrequency=1, one stock is shocked per tick.
+    // The non-shocked stock stays flat at its initial price.
+    const config: SimConfig = {
+      ...DEFAULT_SIM_CONFIG,
+      seed: 7,
+      numStocks: 2,
+      shockFrequency: 1,
+      stockConfigs: [
+        { id: 'A', name: 'A', initialPrice: 100, volatility: 0, drift: 0 },
+        { id: 'B', name: 'B', initialPrice: 100, volatility: 0, drift: 0 },
+      ],
+    };
+    const market = runMarket(config, 1);
+    const closeA = market.stocks[0]!.bars[1]!.close;
+    const closeB = market.stocks[1]!.bars[1]!.close;
+
+    // Exactly one stock should be shocked; the other should stay at 100.
+    const aFlat = Math.abs(closeA - 100) < 1e-9;
+    const bFlat = Math.abs(closeB - 100) < 1e-9;
+    expect(aFlat !== bFlat).toBe(true);
   });
 });

@@ -80,10 +80,21 @@ export function nextFloatRange(state: PrngState, lo: number, hi: number): [PrngS
  * The loop iterates at most twice on average for any range size.
  */
 export function nextInt(state: PrngState, lo: number, hi: number): [PrngState, number] {
+  if (
+    !Number.isFinite(lo) ||
+    !Number.isFinite(hi) ||
+    !Number.isInteger(lo) ||
+    !Number.isInteger(hi)
+  ) {
+    throw new RangeError(`nextInt: lo (${lo}) and hi (${hi}) must be finite integers`);
+  }
   if (hi < lo) {
     throw new RangeError(`nextInt: hi (${hi}) must be >= lo (${lo})`);
   }
   const span = hi - lo + 1;
+  if (span > 0x100000000) {
+    throw new RangeError(`nextInt: range size (hi - lo + 1 = ${span}) must be <= 0x100000000`);
+  }
   // Largest multiple of span that fits in [0, 2^32): values >= limit are rejected.
   const limit = Math.floor(0x100000000 / span) * span;
   let p = state;

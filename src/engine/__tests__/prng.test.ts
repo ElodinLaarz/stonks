@@ -100,6 +100,25 @@ describe('nextInt', () => {
     expect(() => nextInt(createPrng(1), 5, 3)).toThrow(RangeError);
   });
 
+  it('throws when lo or hi is non-integer', () => {
+    expect(() => nextInt(createPrng(1), 0.5, 5)).toThrow(RangeError);
+    expect(() => nextInt(createPrng(1), 0, 5.5)).toThrow(RangeError);
+  });
+
+  it('throws when lo or hi is non-finite', () => {
+    expect(() => nextInt(createPrng(1), -Infinity, 5)).toThrow(RangeError);
+    expect(() => nextInt(createPrng(1), 0, Infinity)).toThrow(RangeError);
+    expect(() => nextInt(createPrng(1), NaN, 5)).toThrow(RangeError);
+  });
+
+  it('throws when span exceeds 0x100000000', () => {
+    expect(() => nextInt(createPrng(1), 0, 0x100000000)).toThrow(RangeError);
+  });
+
+  it('accepts maximum valid span (0x100000000)', () => {
+    expect(() => nextInt(createPrng(1), 0, 0xffffffff)).not.toThrow();
+  });
+
   it('all outputs are in [lo, hi] inclusive', () => {
     let state = createPrng(3);
     for (let i = 0; i < 1_000; i++) {
