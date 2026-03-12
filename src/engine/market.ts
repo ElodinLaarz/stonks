@@ -97,7 +97,8 @@ export function tickMarket(
     shockMultiplier = Math.exp(SHOCK_SIGMA * z);
   }
 
-  // Push a new bar onto each stock's bars array (O(1) amortized).
+  // Build a new Stock object with a new bars array each tick to preserve
+  // immutability for state forking (e.g. Oracle lookahead).
   // stockConfigs[i] and stock.bars are always in bounds: length equality is
   // enforced above, and createMarket guarantees at least one bar per stock.
   const newStocks: Stock[] = state.stocks.map((stock, i) => {
@@ -123,9 +124,7 @@ export function tickMarket(
 
     const newBar: PriceBar = { tick: newTick, open, high, low, close: newClose };
 
-    // Append in place to avoid copying the full bars history each tick.
-    stock.bars.push(newBar);
-    return stock;
+    return { ...stock, bars: [...stock.bars, newBar] };
   });
 
   return [{ tick: newTick, stocks: newStocks, stockConfigs }, p];

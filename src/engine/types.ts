@@ -25,11 +25,10 @@ export interface Stock {
   readonly name: string;
   readonly initialPrice: number;
   /**
-   * Price history, append-only. `tickMarket` pushes to this array in place
-   * (O(1) amortized) rather than copying the entire history each tick.
-   * Callers must not mutate this array directly.
+   * Price history. `tickMarket` returns a new `Stock` object with a new bars
+   * array each tick, preserving immutability for state forking (e.g. Oracle lookahead).
    */
-  readonly bars: PriceBar[];
+  readonly bars: readonly PriceBar[];
 }
 
 export interface MarketState {
