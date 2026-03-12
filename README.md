@@ -19,9 +19,10 @@ The simulation runs a genetic algorithm across trading agents, allowing profitab
 ## Current Implementation Status
 
 **Phase 0: Project Scaffolding**
+
 - ✅ Toolchain setup: Vite, TypeScript 5.x, ESLint, Prettier, Husky.
 - ✅ Testing framework: Vitest and React Testing Library configured.
 - ✅ Project structure established (`src/engine`, `src/components`, `src/store`).
 - ✅ Initial domain types defined (`src/engine/types.ts`).
 
-*Next Up: Phase 1 (Core Engine & Trading)*
+_Next Up: Phase 1 (Core Engine & Trading)_

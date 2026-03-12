@@ -45,9 +45,9 @@ export interface SimConfig {
   numTicks: number;
   oracleLookahead: number;
   startingCapital: number;
-  /** Annualized volatility applied to all stocks unless overridden. Default: 0.2. */
+  /** Annualized volatility applied to all stocks unless overridden. See DEFAULT_SIM_CONFIG. */
   stockVolatility: number;
-  /** Average ticks between shock events. Default: 100. */
+  /** Average ticks between shock events. See DEFAULT_SIM_CONFIG. */
   shockFrequency: number;
   /** Optional per-stock overrides. Defaults to `numStocks` uniform stocks. */
   stockConfigs?: readonly StockConfig[];

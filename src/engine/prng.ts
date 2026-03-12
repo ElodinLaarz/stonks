@@ -83,10 +83,10 @@ export function nextInt(state: PrngState, lo: number, hi: number): [PrngState, n
   if (
     !Number.isFinite(lo) ||
     !Number.isFinite(hi) ||
-    !Number.isInteger(lo) ||
-    !Number.isInteger(hi)
+    !Number.isSafeInteger(lo) ||
+    !Number.isSafeInteger(hi)
   ) {
-    throw new RangeError(`nextInt: lo (${lo}) and hi (${hi}) must be finite integers`);
+    throw new RangeError(`nextInt: lo (${lo}) and hi (${hi}) must be finite safe integers`);
   }
   if (hi < lo) {
     throw new RangeError(`nextInt: hi (${hi}) must be >= lo (${lo})`);

@@ -88,13 +88,14 @@ export function tickMarket(
   let shockMultiplier = 1;
   let shockRoll: number;
   [p, shockRoll] = nextFloat(p);
+  // Always consume these draws for constant PRNG advancement regardless of whether a shock fires.
+  let shockIdx: number;
+  [p, shockIdx] = nextInt(p, 0, Math.max(state.stocks.length - 1, 0));
+  let shockZ: number;
+  [p, shockZ] = boxMuller(p);
   if (state.stocks.length > 0 && shockRoll < 1 / config.shockFrequency) {
-    let idx: number;
-    [p, idx] = nextInt(p, 0, state.stocks.length - 1);
-    shockStockIndex = idx;
-    let z: number;
-    [p, z] = boxMuller(p);
-    shockMultiplier = Math.exp(SHOCK_SIGMA * z);
+    shockStockIndex = shockIdx;
+    shockMultiplier = Math.exp(SHOCK_SIGMA * shockZ);
   }
 
   // Build a new Stock object with a new bars array each tick to preserve

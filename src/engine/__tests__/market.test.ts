@@ -44,7 +44,7 @@ describe('tickMarket determinism', () => {
   it('produces identical results for the same seed (golden output)', () => {
     // High shockFrequency to eliminate shocks from this golden test.
     const config: SimConfig = { ...DEFAULT_SIM_CONFIG, seed: 1, shockFrequency: 999_999 };
-    const GOLDEN_CLOSE = 106.305855811421;
+    const GOLDEN_CLOSE = 105.01979921456447;
 
     const market = runMarket(config, 100);
     const stock0 = market.stocks[0]!;
@@ -59,14 +59,7 @@ describe('tickMarket determinism', () => {
     const config: SimConfig = { ...DEFAULT_SIM_CONFIG, seed: 7 };
     const a = runMarket(config, 50);
     const b = runMarket(config, 50);
-
-    for (let i = 0; i < a.stocks.length; i++) {
-      const stockA = a.stocks[i]!;
-      const stockB = b.stocks[i]!;
-      expect(stockA.bars[stockA.bars.length - 1]!.close).toBe(
-        stockB.bars[stockB.bars.length - 1]!.close,
-      );
-    }
+    expect(a).toEqual(b);
   });
 
   it('different seeds produce different results', () => {
