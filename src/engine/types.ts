@@ -10,6 +10,34 @@ export interface PriceBar {
   close: number;
 }
 
+export interface StockConfig {
+  id: StockId;
+  name: string;
+  initialPrice: number;
+  /** Annualized volatility, e.g. 0.2 = 20%. */
+  volatility: number;
+  /** Annualized drift, e.g. 0.0 = zero drift. */
+  drift: number;
+}
+
+export interface Stock {
+  readonly id: StockId;
+  readonly name: string;
+  readonly initialPrice: number;
+  /**
+   * Price history. `tickMarket` returns a new `Stock` object with a new bars
+   * array each tick, preserving immutability for state forking (e.g. Oracle lookahead).
+   */
+  readonly bars: readonly PriceBar[];
+}
+
+export interface MarketState {
+  readonly tick: Tick;
+  readonly stocks: readonly Stock[];
+  /** Resolved stock configurations, computed once at market creation. */
+  readonly stockConfigs: readonly StockConfig[];
+}
+
 export interface SimConfig {
   seed: number;
   numAgents: number;
@@ -17,4 +45,21 @@ export interface SimConfig {
   numTicks: number;
   oracleLookahead: number;
   startingCapital: number;
+  /** Annualized volatility applied to all stocks unless overridden. Default: 0.2. */
+  stockVolatility: number;
+  /** Average ticks between shock events. Default: 100. */
+  shockFrequency: number;
+  /** Optional per-stock overrides. Defaults to `numStocks` uniform stocks. */
+  stockConfigs?: readonly StockConfig[];
 }
+
+export const DEFAULT_SIM_CONFIG: SimConfig = {
+  seed: 1,
+  numAgents: 4,
+  numStocks: 5,
+  numTicks: 500,
+  oracleLookahead: 5,
+  startingCapital: 10_000,
+  stockVolatility: 0.2,
+  shockFrequency: 100,
+};
