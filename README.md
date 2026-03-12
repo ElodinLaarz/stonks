@@ -18,11 +18,17 @@ The simulation runs a genetic algorithm across trading agents, allowing profitab
 
 ## Current Implementation Status
 
-**Phase 0: Project Scaffolding**
+**Phase 0: Project Scaffolding — complete**
 
-- ✅ Toolchain setup: Vite, TypeScript 5.x, ESLint, Prettier, Husky.
-- ✅ Testing framework: Vitest and React Testing Library configured.
-- ✅ Project structure established (`src/engine`, `src/components`, `src/store`).
-- ✅ Initial domain types defined (`src/engine/types.ts`).
+- ✅ Toolchain: Vite, TypeScript 5.x (strict), ESLint 9.x flat config, Prettier, Husky + lint-staged.
+- ✅ Testing: Vitest + React Testing Library configured; pre-push hook runs typecheck + tests.
+- ✅ Directory structure: `src/engine/`, `src/components/`, `src/hooks/`, `src/store/`.
 
-_Next Up: Phase 1 (Core Engine & Trading)_
+**Phase 1: Core Engine (in progress)**
+
+- ✅ Domain types (`src/engine/types.ts`): `PriceBar`, `Stock`, `MarketState`, `SimConfig`, `DEFAULT_SIM_CONFIG`.
+- ✅ Seeded PRNG (`src/engine/prng.ts`): Xoshiro128+ with immutable state threading; `createPrng`, `nextUint32`, `nextFloat`, `nextFloatRange`, `nextInt` (rejection-sampled, safe-integer validated).
+- ✅ Market engine (`src/engine/market.ts`): GBM price model with configurable per-stock drift/volatility, shock events, OHLC bars, constant PRNG advancement per tick.
+- ✅ 35 tests passing; determinism verified with golden-output and full-state equality checks.
+
+_Next Up: Agent genomes and trading logic (`src/engine/agent.ts`)_
