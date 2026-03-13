@@ -3,6 +3,8 @@ import type { PrngState } from './prng';
 import { portfolioValue } from './agent';
 import type { Agent, AgentId, Genome, MarketState, SimConfig } from './types';
 
+const CROSSOVER_CHANCE = 0.5;
+
 export function rankAgents(
   agents: readonly Agent[],
   marketState: MarketState,
@@ -131,14 +133,14 @@ export function crossoverGenomes(a: Genome, b: Genome, prng: PrngState): [Genome
 export function evolveGeneration(
   agents: readonly Agent[],
   config: SimConfig,
-  marketState: MarketState,
+  fitnessValues: ReadonlyMap<AgentId, number>,
   prng: PrngState,
 ): [readonly Agent[], PrngState] {
   let p = prng;
 
-  // Rank by portfolio value (no caught oracle at generation end — auditor handles that)
+  // Rank by pre-reset portfolio values captured at round end; fall back to 0 for unknown agents.
   const ranked = [...agents].sort(
-    (a, b) => portfolioValue(b, marketState) - portfolioValue(a, marketState),
+    (a, b) => (fitnessValues.get(b.id) ?? 0) - (fitnessValues.get(a.id) ?? 0),
   );
 
   const n = ranked.length;
@@ -159,7 +161,7 @@ export function evolveGeneration(
     let crossoverRoll: number;
     [p, crossoverRoll] = nextFloat(p);
 
-    if (crossoverRoll < 0.5 && topPerformers.length >= 2) {
+    if (crossoverRoll < CROSSOVER_CHANCE && topPerformers.length >= 2) {
       // Crossover with a different parent
       let otherIdx: number;
       [p, otherIdx] = nextInt(p, 0, topPerformers.length - 1);
@@ -172,7 +174,9 @@ export function evolveGeneration(
 
     [childGenome, p] = mutateGenome(childGenome, config, p);
 
-    const newId = `agent_gen_${newAgents.length}_${Date.now()}`;
+    let idSuffix: number;
+    [p, idSuffix] = nextInt(p, 0, 0xffffff);
+    const newId = `agent_gen_${newAgents.length}_${idSuffix.toString(16)}`;
     newAgents.push({
       ...parent,
       id: newId,

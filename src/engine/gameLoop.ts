@@ -3,10 +3,9 @@ import type { PrngState } from './prng';
 import { createMarket, tickMarket } from './market';
 import {
   createAgent,
-  decideAction,
   executeTrade,
-  findBestStockForAgent,
   portfolioValue,
+  selectAndDecide,
   DEFAULT_GENOME,
   DEFAULT_CONCEALMENT_GENOME,
 } from './agent';
@@ -60,6 +59,7 @@ export function createGameState(config: SimConfig): GameState {
     auditor: createAuditorState(agentIds),
     tradeLog: [],
     portfolioHistory,
+    roundEndPortfolioValues: new Map(),
     prng,
     config,
     phase: 'running',
@@ -98,10 +98,9 @@ export function tickGame(state: GameState): GameState {
       );
       oracleStates.set(agent.id, newOracleState);
     } else {
-      // For regular agents: find best stock then decide action
-      // decideAction draws one float for volume noise internally
-      stockId = findBestStockForAgent(agent, newMarket, currentTradeLog, 0);
-      [action, p] = decideAction(agent, stockId, newMarket, currentTradeLog, p);
+      // selectAndDecide draws volumeNoise once and uses it consistently for both
+      // stock selection and action threshold evaluation.
+      [action, stockId, p] = selectAndDecide(agent, newMarket, currentTradeLog, p);
     }
 
     let trade: Trade | null = null;
@@ -167,6 +166,11 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     oracleWon,
   };
 
+  // Capture fitness before resetting portfolios so the GA can rank on actual performance.
+  const roundEndPortfolioValues = new Map<AgentId, number>(
+    state.agents.map((a) => [a.id, portfolioValue(a, state.market)]),
+  );
+
   const nextRound = state.round + 1;
   const isGenerationEnd = nextRound >= state.config.roundsPerGeneration;
 
@@ -184,6 +188,10 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     resetPortfolioHistory.set(agent.id, [state.config.startingCapital]);
   }
 
+  // Start next round with a fresh auditor, but carry forward the accusation so the UI
+  // can display who was accused at round end.
+  const freshAuditor = createAuditorState(resetAgents.map((a) => a.id));
+
   const newState: GameState = {
     ...state,
     round: nextRound,
@@ -191,9 +199,10 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     market: createMarket(state.config),
     agents: resetAgents,
     oracleStates: resetOracleStates,
-    auditor: createAuditorState(resetAgents.map((a) => a.id)),
+    auditor: { ...freshAuditor, accusation },
     tradeLog: [],
     portfolioHistory: resetPortfolioHistory,
+    roundEndPortfolioValues,
     phase: isGenerationEnd ? 'generationEnd' : 'running',
   };
 
@@ -206,7 +215,7 @@ export function resolveGeneration(state: GameState): GameState {
   const [newAgents, newPrng] = evolveGeneration(
     state.agents,
     state.config,
-    state.market,
+    state.roundEndPortfolioValues,
     state.prng,
   );
 
@@ -231,6 +240,7 @@ export function resolveGeneration(state: GameState): GameState {
     auditor: createAuditorState(newAgents.map((a) => a.id)),
     tradeLog: [],
     portfolioHistory,
+    roundEndPortfolioValues: new Map(),
     prng: newPrng,
     phase: isFinished ? 'finished' : 'running',
   };

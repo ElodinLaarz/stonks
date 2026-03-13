@@ -164,6 +164,8 @@ export interface GameState {
   readonly auditor: AuditorState;
   readonly tradeLog: readonly Trade[];
   readonly portfolioHistory: ReadonlyMap<AgentId, readonly number[]>;
+  /** Portfolio values captured at end of each round (before reset) for use by the GA. */
+  readonly roundEndPortfolioValues: ReadonlyMap<AgentId, number>;
   readonly prng: PrngState;
   readonly config: SimConfig;
   readonly phase: 'running' | 'roundEnd' | 'generationEnd' | 'finished';

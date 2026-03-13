@@ -115,12 +115,14 @@ export function computeSignals(
   // 5. Volume proxy: pre-drawn uniform noise shifted to [-1, 1)
   const volumeProxy = volumeNoise * 2 - 1;
 
-  // 6. Peer copying: mirror last non-self trade on this stock
+  // 6. Peer copying: mirror last non-self trade on this stock (reverse search for O(1) amortized)
   let peerCopy = 0;
-  const stockTrades = tradeLog.filter((t) => t.stockId === stockId && t.agentId !== agent.id);
-  if (stockTrades.length > 0) {
-    const lastTrade = stockTrades[stockTrades.length - 1]!;
-    peerCopy = lastTrade.action === 'buy' ? 1 : lastTrade.action === 'sell' ? -1 : 0;
+  for (let i = tradeLog.length - 1; i >= 0; i--) {
+    const t = tradeLog[i]!;
+    if (t.stockId === stockId && t.agentId !== agent.id) {
+      peerCopy = t.action === 'buy' ? 1 : t.action === 'sell' ? -1 : 0;
+      break;
+    }
   }
 
   const signals: readonly [number, number, number, number, number, number] = [
@@ -152,6 +154,44 @@ export function findBestStockForAgent(
     }
   }
   return bestId;
+}
+
+/**
+ * Select the best stock and decide an action in one pass, drawing volumeNoise exactly once.
+ * This ensures the same noise value is used for both stock selection and threshold evaluation,
+ * avoiding the logical inconsistency of selecting with one signal then deciding with another.
+ */
+export function selectAndDecide(
+  agent: Agent,
+  marketState: MarketState,
+  tradeLog: readonly Trade[],
+  prng: PrngState,
+): [TradeAction, StockId, PrngState] {
+  let p = prng;
+  let volumeNoise: number;
+  [p, volumeNoise] = nextFloat(p);
+
+  let bestId = marketState.stocks[0]?.id ?? '';
+  let bestSignal = -Infinity;
+  for (const stock of marketState.stocks) {
+    const sig = computeSignals(agent, marketState, stock.id, tradeLog, volumeNoise);
+    if (sig > bestSignal) {
+      bestSignal = sig;
+      bestId = stock.id;
+    }
+  }
+
+  const { buyThreshold, sellThreshold } = agent.genome;
+  let action: TradeAction;
+  if (bestSignal >= buyThreshold) {
+    action = 'buy';
+  } else if (bestSignal <= -sellThreshold) {
+    action = 'sell';
+  } else {
+    action = 'hold';
+  }
+
+  return [action, bestId, p];
 }
 
 /**

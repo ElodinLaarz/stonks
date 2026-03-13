@@ -61,7 +61,7 @@ export function PriceChart({ stocks, tick }: Props) {
     // Max bars to show (use the longest stock's bars count)
     const maxBars = Math.max(...stocks.map((s) => s.bars.length));
 
-    // X-axis label
+    // X-axis label (in lower portion of bottom padding)
     ctx.textAlign = 'center';
     ctx.fillText(`Tick ${tick}`, pad.left + chartW / 2, height - 4);
 
@@ -74,7 +74,7 @@ export function PriceChart({ stocks, tick }: Props) {
       ctx.beginPath();
       for (let i = 0; i < stock.bars.length; i++) {
         const bar = stock.bars[i]!;
-        const x = pad.left + (i / (maxBars - 1)) * chartW;
+        const x = pad.left + (i / Math.max(maxBars - 1, 1)) * chartW;
         const y = pad.top + chartH - ((bar.close - minPrice) / (maxPrice - minPrice)) * chartH;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
@@ -82,16 +82,17 @@ export function PriceChart({ stocks, tick }: Props) {
       ctx.stroke();
     }
 
-    // Legend
+    // Legend (in upper portion of bottom padding, above the tick label)
     ctx.textAlign = 'left';
+    let legendX = pad.left;
     for (let si = 0; si < stocks.length; si++) {
       const stock = stocks[si]!;
-      const x = pad.left + si * 80;
-      const y = height - 4;
+      const legendY = height - 16;
       ctx.fillStyle = COLORS[si % COLORS.length]!;
-      ctx.fillRect(x, y - 8, 12, 8);
+      ctx.fillRect(legendX, legendY - 8, 10, 8);
       ctx.fillStyle = '#aaa';
-      ctx.fillText(stock.name, x + 16, y);
+      ctx.fillText(stock.name, legendX + 14, legendY);
+      legendX += 14 + Math.ceil(ctx.measureText(stock.name).width) + 8;
     }
   }, [stocks, tick]);
 

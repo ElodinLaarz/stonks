@@ -36,14 +36,9 @@ function App() {
     setSpeed(s);
   }, []);
 
-  const handleConfigChange = useCallback(
-    (partial: Partial<SimConfig>) => {
-      const next = { ...config, ...partial };
-      setConfig(next);
-      sim.reset();
-    },
-    [config, sim],
-  );
+  const handleConfigChange = useCallback((partial: Partial<SimConfig>) => {
+    setConfig((prev) => ({ ...prev, ...partial }));
+  }, []);
 
   const { state } = sim;
 

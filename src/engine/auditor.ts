@@ -9,6 +9,15 @@ import type {
   Trade,
 } from './types';
 
+const TIMING_CLUSTER_WINDOW = 2;
+
+const COMPOSITE_WEIGHTS = {
+  predictiveCorrelation: 0.35,
+  winRate: 0.3,
+  timingClustering: 0.2,
+  behavioralFingerprint: 0.15,
+} as const;
+
 const ZERO_SCORES: SuspicionScores = {
   predictiveCorrelation: 0,
   winRate: 0,
@@ -131,7 +140,7 @@ function computeTimingClustering(history: AgentTradeHistory, marketState: Market
 
   let nearInflection = 0;
   for (const tick of history.tradeTicks) {
-    for (let dt = -2; dt <= 2; dt++) {
+    for (let dt = -TIMING_CLUSTER_WINDOW; dt <= TIMING_CLUSTER_WINDOW; dt++) {
       if (inflectionTicks.has(tick + dt)) {
         nearInflection++;
         break;
@@ -164,10 +173,10 @@ function computeSuspicionScores(
   const behavioralFingerprint = computeBehavioralFingerprint(history);
 
   const composite =
-    0.35 * predictiveCorrelation +
-    0.3 * winRate +
-    0.2 * timingClustering +
-    0.15 * (1 - behavioralFingerprint);
+    COMPOSITE_WEIGHTS.predictiveCorrelation * predictiveCorrelation +
+    COMPOSITE_WEIGHTS.winRate * winRate +
+    COMPOSITE_WEIGHTS.timingClustering * timingClustering +
+    COMPOSITE_WEIGHTS.behavioralFingerprint * (1 - behavioralFingerprint);
 
   return { predictiveCorrelation, winRate, timingClustering, behavioralFingerprint, composite };
 }

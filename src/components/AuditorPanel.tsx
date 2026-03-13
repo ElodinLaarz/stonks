@@ -5,6 +5,9 @@ interface Props {
   agents: readonly Agent[];
 }
 
+const SUSPICION_HIGH_THRESHOLD = 0.6;
+const SUSPICION_MED_THRESHOLD = 0.3;
+
 const BAR_COLORS = {
   predictiveCorrelation: '#4fc3f7',
   winRate: '#81c784',
@@ -44,7 +47,12 @@ export function AuditorPanel({ auditorState, agents }: Props) {
                 style={{
                   height: '100%',
                   width: `${Math.min(100, composite * 100).toFixed(1)}%`,
-                  background: composite > 0.6 ? '#f06292' : composite > 0.3 ? '#ffb74d' : '#4fc3f7',
+                  background:
+                    composite > SUSPICION_HIGH_THRESHOLD
+                      ? '#f06292'
+                      : composite > SUSPICION_MED_THRESHOLD
+                        ? '#ffb74d'
+                        : '#4fc3f7',
                   transition: 'width 0.2s',
                 }}
               />

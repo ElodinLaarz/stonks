@@ -16,6 +16,11 @@ interface Props {
   generation: number;
 }
 
+const PHASE_COLOR: Record<string, string> = {
+  finished: '#f06292',
+  running: '#81c784',
+};
+
 const BTN: React.CSSProperties = {
   padding: '6px 16px',
   borderRadius: 4,
@@ -79,7 +84,7 @@ export function SimControls({
         </span>
         <span
           style={{
-            color: phase === 'finished' ? '#f06292' : phase === 'running' ? '#81c784' : '#ffb74d',
+            color: PHASE_COLOR[phase] ?? '#ffb74d',
           }}
         >
           [{phase}]

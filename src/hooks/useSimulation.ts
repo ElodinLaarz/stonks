@@ -90,6 +90,19 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     setSnapshot(fresh);
   }, [pause]);
 
+  // Reset the simulation whenever config changes (e.g. from the controls panel).
+  // Using a ref to skip the initial mount so we don't double-initialize on first render.
+  const prevConfigRef = useRef(config);
+  useEffect(() => {
+    if (prevConfigRef.current !== config) {
+      prevConfigRef.current = config;
+      pause();
+      const fresh = createGameState(config);
+      stateRef.current = fresh;
+      setSnapshot(fresh);
+    }
+  }, [config, pause]);
+
   useEffect(() => () => pause(), [pause]);
 
   return { state: snapshot, isRunning, start, pause, reset };

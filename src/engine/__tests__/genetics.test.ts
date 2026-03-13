@@ -4,7 +4,7 @@ import { createMarket } from '../market';
 import { createAgent, portfolioValue, DEFAULT_GENOME, DEFAULT_CONCEALMENT_GENOME } from '../agent';
 import { rankAgents, mutateGenome, crossoverGenomes, evolveGeneration } from '../genetics';
 import { DEFAULT_SIM_CONFIG } from '../types';
-import type { SimConfig } from '../types';
+import type { Agent, SimConfig } from '../types';
 
 const config: SimConfig = {
   ...DEFAULT_SIM_CONFIG,
@@ -18,6 +18,11 @@ function makeAgents(n: number) {
   return Array.from({ length: n }, (_, i) =>
     createAgent(`a${i}`, DEFAULT_GENOME, DEFAULT_CONCEALMENT_GENOME, 10_000 + i * 1000, i === 0),
   );
+}
+
+function fitnessFromAgents(agents: readonly Agent[], config: SimConfig) {
+  const market = createMarket(config);
+  return new Map(agents.map((a) => [a.id, portfolioValue(a, market)]));
 }
 
 describe('rankAgents', () => {
@@ -98,24 +103,25 @@ describe('crossoverGenomes', () => {
 describe('evolveGeneration', () => {
   it('preserves population count', () => {
     const agents = makeAgents(8);
-    const market = createMarket(config);
-    const [newAgents] = evolveGeneration(agents, config, market, createPrng(1));
+    const fitness = fitnessFromAgents(agents, config);
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
     expect(newAgents.length).toBe(8);
   });
 
   it('exactly one oracle in new generation', () => {
     const agents = makeAgents(6);
-    const market = createMarket(config);
-    const [newAgents] = evolveGeneration(agents, config, market, createPrng(1));
+    const fitness = fitnessFromAgents(agents, config);
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
     expect(newAgents.filter((a) => a.isOracle).length).toBe(1);
   });
 
   it('is deterministic', () => {
     const agents = makeAgents(4);
-    const market = createMarket(config);
-    const [a] = evolveGeneration(agents, config, market, createPrng(42));
-    const [b] = evolveGeneration(agents, config, market, createPrng(42));
-    // Agents may have timestamp-based IDs; check genomes instead
+    const fitness = fitnessFromAgents(agents, config);
+    const [a] = evolveGeneration(agents, config, fitness, createPrng(42));
+    const [b] = evolveGeneration(agents, config, fitness, createPrng(42));
     expect(a.map((x) => x.genome)).toEqual(b.map((x) => x.genome));
+    // IDs are now PRNG-derived so they should also match
+    expect(a.map((x) => x.id)).toEqual(b.map((x) => x.id));
   });
 });

@@ -1,4 +1,6 @@
 import { nextFloat, nextInt } from './prng';
+
+const STYLE_MIMICRY_CHANCE = 0.5;
 import type { PrngState } from './prng';
 import { decideAction, findBestStockForAgent } from './agent';
 import { tickMarket } from './market';
@@ -88,14 +90,18 @@ export function oracleDecideAction(
   // (Implemented as a soft override — if target recently sold, flip to sell)
   let finalAction = idealAction;
   if (concealmentGenome.styleTarget !== null) {
-    const targetTrades = tradeLog.filter((t) => t.agentId === concealmentGenome.styleTarget);
-    if (targetTrades.length > 0) {
-      const last = targetTrades[targetTrades.length - 1]!;
-      // 50% chance to mirror target's last action instead
+    let lastTargetAction: Trade | null = null;
+    for (let i = tradeLog.length - 1; i >= 0; i--) {
+      if (tradeLog[i]!.agentId === concealmentGenome.styleTarget) {
+        lastTargetAction = tradeLog[i]!;
+        break;
+      }
+    }
+    if (lastTargetAction !== null) {
       let styleRoll: number;
       [p, styleRoll] = nextFloat(p);
-      if (styleRoll < 0.5) {
-        finalAction = last.action === 'hold' ? idealAction : last.action;
+      if (styleRoll < STYLE_MIMICRY_CHANCE) {
+        finalAction = lastTargetAction.action === 'hold' ? idealAction : lastTargetAction.action;
       }
     }
   }
