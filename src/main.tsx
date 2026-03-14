@@ -102,7 +102,9 @@ function App() {
         />
       </div>
 
-      {atRoundEnd && <RoundSummary state={state} onContinue={sim.continueRound} />}
+      {atRoundEnd && sim.roundSummary !== null && (
+        <RoundSummary summary={sim.roundSummary} onContinue={sim.continueRound} />
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
         <div style={PANEL_STYLE}>
@@ -126,7 +128,11 @@ function App() {
 
         <div style={PANEL_STYLE}>
           <PanelLabel>Auditor Panel</PanelLabel>
-          <AuditorPanel auditorState={state.auditor} agents={state.agents} />
+          <AuditorPanel
+            auditorState={state.auditor}
+            agents={state.agents}
+            currentAccusation={sim.currentAccusation}
+          />
         </div>
       </div>
     </div>

@@ -1,14 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createGameState, tickGame, resolveRound, resolveGeneration } from '../engine/gameLoop';
-import type { GameState, SimConfig } from '../engine';
+import { makeAccusation } from '../engine/auditor';
+import { portfolioValue } from '../engine/agent';
+import type { AgentId, GameState, SimConfig } from '../engine';
+
+export interface AgentRankEntry {
+  agentId: AgentId;
+  value: number;
+  originalIndex: number;
+  isOracle: boolean;
+}
+
+export interface RoundSummaryData {
+  round: number;
+  generation: number;
+  accusedId: AgentId | null;
+  oracleId: AgentId | null;
+  oracleCaught: boolean;
+  rankedAgents: AgentRankEntry[];
+  isLastRound: boolean;
+}
 
 export interface SimulationControls {
   state: GameState;
   isRunning: boolean;
+  /** Live accusation derived from current suspicion scores (null until there is positive evidence). */
+  currentAccusation: AgentId | null;
+  /** Non-null only when phase === 'roundEnd'. Pre-computed for display without engine imports in components. */
+  roundSummary: RoundSummaryData | null;
   start: () => void;
   pause: () => void;
   reset: () => void;
-  /** Resolve the current roundEnd/generationEnd state and resume the simulation. */
+  /** Resolve the current roundEnd state and resume the simulation. */
   continueRound: () => void;
 }
 
@@ -121,5 +144,42 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
 
   useEffect(() => () => pause(), [pause]);
 
-  return { state: snapshot, isRunning, start, pause, reset, continueRound };
+  const currentAccusation = useMemo(() => makeAccusation(snapshot.auditor), [snapshot.auditor]);
+
+  const roundSummary = useMemo((): RoundSummaryData | null => {
+    if (snapshot.phase !== 'roundEnd') return null;
+    const accusedId = makeAccusation(snapshot.auditor);
+    const oracle = snapshot.agents.find((a) => a.isOracle);
+    const oracleId = oracle?.id ?? null;
+    const oracleCaught = accusedId !== null && accusedId === oracleId;
+    const rankedAgents = snapshot.agents
+      .map((a, originalIndex) => ({
+        agentId: a.id,
+        value: portfolioValue(a, snapshot.market),
+        originalIndex,
+        isOracle: a.isOracle,
+      }))
+      .sort((a, b) => b.value - a.value);
+    const isLastRound = snapshot.round + 1 >= snapshot.config.roundsPerGeneration;
+    return {
+      round: snapshot.round,
+      generation: snapshot.generation,
+      accusedId,
+      oracleId,
+      oracleCaught,
+      rankedAgents,
+      isLastRound,
+    };
+  }, [snapshot]);
+
+  return {
+    state: snapshot,
+    isRunning,
+    currentAccusation,
+    roundSummary,
+    start,
+    pause,
+    reset,
+    continueRound,
+  };
 }

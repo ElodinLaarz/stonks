@@ -52,7 +52,7 @@ npm run build      # Production build
 
 | Module | Description |
 |---|---|
-| `hooks/useSimulation.ts` | RAF loop; batches up to 50 ticks/frame; auto-resolves `roundEnd`/`generationEnd`; resets on config change |
+| `hooks/useSimulation.ts` | RAF loop; batches up to 50 ticks/frame; pauses at `roundEnd` for summary display; auto-resolves `generationEnd`; resets on config change |
 | `components/PriceChart.tsx` | Canvas multi-line chart of all stock close prices; dynamic legend spacing |
 | `components/PortfolioRace.tsx` | Canvas portfolio value per agent over time; oracle shown dashed |
 | `components/TradeFeed.tsx` | Color-coded scrolling trade log (most recent first); stable React keys |

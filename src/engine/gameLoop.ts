@@ -26,6 +26,7 @@ import type {
 } from './types';
 
 export function createGameState(config: SimConfig): GameState {
+  if (config.numAgents < 2) throw new Error('numAgents must be at least 2');
   let prng = createPrng(config.seed);
   const market = createMarket(config);
 

@@ -19,14 +19,20 @@ export function PortfolioRace({ portfolioHistory, agents, tick }: Props) {
     const ctx = canvas.getContext('2d');
     if (ctx === null) return;
 
-    // Scale canvas buffer to device pixel ratio to eliminate blur on HiDPI screens
+    // Scale canvas buffer to device pixel ratio to eliminate blur on HiDPI screens.
+    // Only resize the backing store when physical dimensions change — resizing resets
+    // the canvas and is expensive; setTransform is absolute so it never accumulates.
     const dpr = window.devicePixelRatio ?? 1;
     const cssW = canvas.clientWidth;
     const cssH = canvas.clientHeight;
     if (!cssW || !cssH) return;
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    ctx.scale(dpr, dpr);
+    const physW = Math.round(cssW * dpr);
+    const physH = Math.round(cssH * dpr);
+    if (canvas.width !== physW || canvas.height !== physH) {
+      canvas.width = physW;
+      canvas.height = physH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const width = cssW;
     const height = cssH;
@@ -145,7 +151,7 @@ export function PortfolioRace({ portfolioHistory, agents, tick }: Props) {
               }}
             />
             {a.id.slice(0, 10)}
-            {a.isOracle && <span style={{ color: '#ffb74d' }}> ★</span>}
+            {a.isOracle && <span> ★</span>}
           </span>
         ))}
       </div>

@@ -1,29 +1,14 @@
-import { makeAccusation } from '../engine/auditor';
-import { portfolioValue } from '../engine/agent';
-import type { GameState } from '../engine';
+import type { RoundSummaryData } from '../hooks/useSimulation';
 import { AGENT_COLORS } from './agentColors';
 
 interface Props {
-  state: GameState;
+  summary: RoundSummaryData;
   onContinue: () => void;
 }
 
-export function RoundSummary({ state, onContinue }: Props) {
-  const accusedId = makeAccusation(state.auditor);
-  const oracle = state.agents.find((a) => a.isOracle);
-  const oracleId = oracle?.id ?? null;
-  const oracleCaught = accusedId !== null && accusedId === oracleId;
-
-  // Preserve original index so each agent keeps their color from the Portfolio Race
-  const ranked = [...state.agents]
-    .map((a, originalIndex) => ({
-      agent: a,
-      value: portfolioValue(a, state.market),
-      originalIndex,
-    }))
-    .sort((a, b) => b.value - a.value);
-
-  const isLastRound = state.round + 1 >= state.config.roundsPerGeneration;
+export function RoundSummary({ summary, onContinue }: Props) {
+  const { round, generation, accusedId, oracleId, oracleCaught, rankedAgents, isLastRound } =
+    summary;
 
   return (
     <div
@@ -45,9 +30,9 @@ export function RoundSummary({ state, onContinue }: Props) {
         }}
       >
         <span style={{ color: '#4fc3f7', fontWeight: 'bold', fontSize: 13, letterSpacing: 1 }}>
-          ROUND {state.round} COMPLETE
+          ROUND {round} COMPLETE
           {isLastRound && (
-            <span style={{ color: '#ffb74d', marginLeft: 8 }}>— GEN {state.generation} END</span>
+            <span style={{ color: '#ffb74d', marginLeft: 8 }}>— GEN {generation} END</span>
           )}
         </span>
         <button
@@ -82,11 +67,11 @@ export function RoundSummary({ state, onContinue }: Props) {
           >
             Final Rankings
           </div>
-          {ranked.map(({ agent, value, originalIndex }, i) => {
+          {rankedAgents.map(({ agentId, value, originalIndex, isOracle }, i) => {
             const agentColor = AGENT_COLORS[originalIndex % AGENT_COLORS.length]!;
             return (
               <div
-                key={agent.id}
+                key={agentId}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -97,10 +82,10 @@ export function RoundSummary({ state, onContinue }: Props) {
                 <span>
                   <span style={{ color: '#555', marginRight: 6 }}>#{i + 1}</span>
                   <span style={{ color: agentColor }}>
-                    {agent.id.slice(0, 12)}
-                    {agent.isOracle && ' ★'}
+                    {agentId.slice(0, 12)}
+                    {isOracle && ' ★'}
                   </span>
-                  {accusedId === agent.id && (
+                  {accusedId === agentId && (
                     <span style={{ color: '#f06292', marginLeft: 4 }}>[accused]</span>
                   )}
                 </span>

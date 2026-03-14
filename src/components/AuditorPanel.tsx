@@ -1,10 +1,10 @@
-import { makeAccusation } from '../engine/auditor';
-import type { AuditorState, Agent } from '../engine';
+import type { AgentId, AuditorState, Agent } from '../engine';
 import { AGENT_COLORS } from './agentColors';
 
 interface Props {
   auditorState: AuditorState;
   agents: readonly Agent[];
+  currentAccusation: AgentId | null;
 }
 
 const BAR_COLORS = {
@@ -14,12 +14,7 @@ const BAR_COLORS = {
   behavioralFingerprint: '#f06292',
 };
 
-export function AuditorPanel({ auditorState, agents }: Props) {
-  // Compute the current accusation live from scores rather than reading
-  // auditorState.accusation, which holds the *previous* round's accusation
-  // (carried forward by resolveRound for display after reset).
-  const currentAccusation = makeAccusation(auditorState);
-
+export function AuditorPanel({ auditorState, agents, currentAccusation }: Props) {
   return (
     <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
       {agents.map((agent, ai) => {
