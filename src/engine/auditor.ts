@@ -78,11 +78,17 @@ export function updateSuspicion(
     });
   }
 
-  // Recompute scores for all agents
+  // Only recompute scores for agents who traded this tick; others keep their previous score.
+  // This avoids re-scanning the full trade history for every agent on every tick.
+  const agentsWithNewTrades = new Set(newTrades.map((t) => t.agentId));
   const newScores = new Map<AgentId, SuspicionScores>();
   for (const agentId of allAgentIds) {
-    const history = newHistories.get(agentId) ?? emptyHistory();
-    newScores.set(agentId, computeSuspicionScores(history, marketState));
+    if (agentsWithNewTrades.has(agentId)) {
+      const history = newHistories.get(agentId) ?? emptyHistory();
+      newScores.set(agentId, computeSuspicionScores(history, marketState));
+    } else {
+      newScores.set(agentId, state.scores.get(agentId) ?? ZERO_SCORES);
+    }
   }
 
   return { ...state, scores: newScores, tradeHistories: newHistories };

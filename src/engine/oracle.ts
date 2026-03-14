@@ -1,6 +1,4 @@
 import { nextFloat, nextInt } from './prng';
-
-const STYLE_MIMICRY_CHANCE = 0.5;
 import type { PrngState } from './prng';
 import { decideAction, findBestStockForAgent } from './agent';
 import { tickMarket } from './market';
@@ -14,6 +12,8 @@ import type {
   Trade,
   TradeAction,
 } from './types';
+
+const STYLE_MIMICRY_CHANCE = 0.5;
 
 function findBestFutureStock(currentMarket: MarketState, futureMarket: MarketState): StockId {
   let bestId = currentMarket.stocks[0]?.id ?? '';

@@ -167,6 +167,8 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
   };
 
   // Capture fitness before resetting portfolios so the GA can rank on actual performance.
+  // Only the last completed round's values are used for GA selection — this intentionally
+  // weights selection toward recent performance rather than averaged generation history.
   const roundEndPortfolioValues = new Map<AgentId, number>(
     state.agents.map((a) => [a.id, portfolioValue(a, state.market)]),
   );
