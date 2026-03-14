@@ -8,6 +8,8 @@ export interface SimulationControls {
   start: () => void;
   pause: () => void;
   reset: () => void;
+  /** Resolve the current roundEnd/generationEnd state and resume the simulation. */
+  continueRound: () => void;
 }
 
 export function useSimulation(config: SimConfig, speed: number = 10): SimulationControls {
@@ -23,14 +25,19 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
   speedRef.current = speed;
 
   const advanceState = useCallback((state: GameState): GameState => {
-    if (state.phase === 'roundEnd') {
-      const [nextState] = resolveRound(state);
-      return nextState.phase === 'generationEnd' ? resolveGeneration(nextState) : nextState;
-    }
-    if (state.phase === 'generationEnd') {
-      return resolveGeneration(state);
-    }
+    // roundEnd is NOT auto-resolved here — the loop stops so the UI can show a round summary.
+    // generationEnd is auto-resolved (GA runs silently; the generation log is future work).
+    if (state.phase === 'generationEnd') return resolveGeneration(state);
     return tickGame(state);
+  }, []);
+
+  const pause = useCallback(() => {
+    isRunningRef.current = false;
+    setIsRunning(false);
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   }, []);
 
   const loop = useCallback(
@@ -49,16 +56,18 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
         lastTimeRef.current = timestamp - (elapsed % msPerTick);
         let s = stateRef.current;
         for (let i = 0; i < ticksToDo; i++) {
-          if (s.phase === 'finished') break;
+          if (s.phase === 'finished' || s.phase === 'roundEnd') break;
           s = advanceState(s);
         }
         stateRef.current = s;
         setSnapshot(s);
       }
 
-      if (stateRef.current.phase !== 'finished') {
+      const phase = stateRef.current.phase;
+      if (phase === 'running' || phase === 'generationEnd') {
         rafRef.current = requestAnimationFrame(loop);
       } else {
+        // Pause at roundEnd (show summary) and stop at finished
         isRunningRef.current = false;
         setIsRunning(false);
       }
@@ -67,21 +76,14 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
   );
 
   const start = useCallback(() => {
-    if (isRunningRef.current || stateRef.current.phase === 'finished') return;
+    const phase = stateRef.current.phase;
+    // roundEnd is handled by continueRound, not start
+    if (isRunningRef.current || phase === 'finished' || phase === 'roundEnd') return;
     isRunningRef.current = true;
     lastTimeRef.current = null;
     setIsRunning(true);
     rafRef.current = requestAnimationFrame(loop);
   }, [loop]);
-
-  const pause = useCallback(() => {
-    isRunningRef.current = false;
-    setIsRunning(false);
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
 
   const reset = useCallback(() => {
     pause();
@@ -90,8 +92,22 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     setSnapshot(fresh);
   }, [pause]);
 
+  const continueRound = useCallback(() => {
+    if (stateRef.current.phase !== 'roundEnd') return;
+    // Resolve the round; auto-resolve generationEnd so the GA runs without a second pause
+    const [resolved] = resolveRound(stateRef.current);
+    const next = resolved.phase === 'generationEnd' ? resolveGeneration(resolved) : resolved;
+    stateRef.current = next;
+    setSnapshot(next);
+    if (next.phase === 'running') {
+      isRunningRef.current = true;
+      lastTimeRef.current = null;
+      setIsRunning(true);
+      rafRef.current = requestAnimationFrame(loop);
+    }
+  }, [loop]);
+
   // Reset the simulation whenever config changes (e.g. from the controls panel).
-  // Using a ref to skip the initial mount so we don't double-initialize on first render.
   const prevConfigRef = useRef(config);
   useEffect(() => {
     if (prevConfigRef.current !== config) {
@@ -105,5 +121,5 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
 
   useEffect(() => () => pause(), [pause]);
 
-  return { state: snapshot, isRunning, start, pause, reset };
+  return { state: snapshot, isRunning, start, pause, reset, continueRound };
 }

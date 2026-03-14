@@ -225,7 +225,7 @@ The codebase is split into two distinct layers that must not be coupled in the w
 | `src/engine/types.ts`   | All shared domain types: `Agent`, `Genome`, `Stock`, `Trade`, `Tick`, `AuditorState`, `GameConfig`. Single source of truth — no duplicate type definitions allowed.                                       |
 | `src/components/`       | React components. One component per file, filename matches component name (PascalCase). No business logic — components read state and fire callbacks only.                                                |
 | `src/hooks/`            | Custom React hooks that bridge the engine and UI. `useSimulation` is the primary hook: owns the engine instance, drives the tick loop via `requestAnimationFrame`, and exposes read-only state snapshots. |
-| `src/store/`            | Zustand store for UI state (panel visibility, selected agent, config panel values). Simulation state is NOT stored here — it lives in the engine and is passed through `useSimulation`.                   |
+| `src/store/`            | Reserved for Zustand UI state (panel visibility, selected agent). Currently unused — speed and running state are managed by `useState` in `main.tsx` and `useSimulation` respectively.                    |
 | `src/engine/__tests__/` | Vitest unit tests co-located with the engine. Component tests live in `src/components/__tests__/` using React Testing Library.                                                                            |
 
 ### Naming & Code Style

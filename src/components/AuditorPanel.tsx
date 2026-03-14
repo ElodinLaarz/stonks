@@ -1,12 +1,11 @@
+import { makeAccusation } from '../engine/auditor';
 import type { AuditorState, Agent } from '../engine';
+import { AGENT_COLORS } from './agentColors';
 
 interface Props {
   auditorState: AuditorState;
   agents: readonly Agent[];
 }
-
-const SUSPICION_HIGH_THRESHOLD = 0.6;
-const SUSPICION_MED_THRESHOLD = 0.3;
 
 const BAR_COLORS = {
   predictiveCorrelation: '#4fc3f7',
@@ -16,43 +15,45 @@ const BAR_COLORS = {
 };
 
 export function AuditorPanel({ auditorState, agents }: Props) {
+  // Compute the current accusation live from scores rather than reading
+  // auditorState.accusation, which holds the *previous* round's accusation
+  // (carried forward by resolveRound for display after reset).
+  const currentAccusation = makeAccusation(auditorState);
+
   return (
     <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
-      {agents.map((agent) => {
+      {agents.map((agent, ai) => {
         const scores = auditorState.scores.get(agent.id);
-        const isAccused = auditorState.accusation === agent.id;
+        const isAccused = currentAccusation === agent.id;
         const composite = scores?.composite ?? 0;
+        const agentColor = AGENT_COLORS[ai % AGENT_COLORS.length]!;
         return (
           <div
             key={agent.id}
             style={{
               marginBottom: 8,
               padding: 4,
-              border: isAccused ? '1px solid #f06292' : '1px solid #333',
+              border: isAccused ? `1px solid ${agentColor}` : '1px solid #333',
               borderRadius: 3,
-              background: isAccused ? '#2a1a1a' : '#111',
+              background: isAccused ? '#1a1a2e' : '#111',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ color: agent.isOracle ? '#ffb74d' : '#aaa' }}>
+              <span style={{ color: agentColor }}>
                 {agent.id.slice(0, 10)}
-                {agent.isOracle ? ' [oracle]' : ''}
+                {agent.isOracle ? ' ★' : ''}
               </span>
-              {isAccused && <span style={{ color: '#f06292' }}>ACCUSED</span>}
+              {isAccused && <span style={{ color: agentColor }}>▲ ACCUSED</span>}
               <span style={{ color: '#ddd' }}>composite: {composite.toFixed(3)}</span>
             </div>
-            {/* Composite bar */}
+            {/* Composite bar — uses agent identity color so it stays consistent with Portfolio Race */}
             <div style={{ height: 8, background: '#222', borderRadius: 2, overflow: 'hidden' }}>
               <div
                 style={{
                   height: '100%',
                   width: `${Math.min(100, composite * 100).toFixed(1)}%`,
-                  background:
-                    composite > SUSPICION_HIGH_THRESHOLD
-                      ? BAR_COLORS.behavioralFingerprint
-                      : composite > SUSPICION_MED_THRESHOLD
-                        ? BAR_COLORS.timingClustering
-                        : BAR_COLORS.predictiveCorrelation,
+                  background: agentColor,
+                  opacity: 0.4 + composite * 0.6, // dim when low suspicion, bright when high
                   transition: 'width 0.2s',
                 }}
               />
