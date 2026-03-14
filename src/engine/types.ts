@@ -119,7 +119,6 @@ export interface Agent {
   readonly concealmentGenome: ConcealmentGenome;
   readonly portfolio: Portfolio;
   readonly isOracle: boolean;
-  readonly oracleDelay: number;
 }
 
 export interface PendingOracleAction {

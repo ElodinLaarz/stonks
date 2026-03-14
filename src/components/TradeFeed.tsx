@@ -16,9 +16,9 @@ export function TradeFeed({ trades, maxVisible = 20 }: Props) {
   return (
     <div style={{ fontFamily: 'monospace', fontSize: 11, overflowY: 'auto', maxHeight: 180 }}>
       {visible.length === 0 && <div style={{ color: '#555' }}>No trades yet.</div>}
-      {visible.map((t) => (
+      {visible.map((t, i) => (
         <div
-          key={`${t.tick}-${t.agentId}-${t.stockId}`}
+          key={`${trades.length - 1 - i}`}
           style={{ display: 'flex', gap: 6, padding: '1px 0', borderBottom: '1px solid #222' }}
         >
           <span style={{ color: '#555', minWidth: 36 }}>t{t.tick}</span>

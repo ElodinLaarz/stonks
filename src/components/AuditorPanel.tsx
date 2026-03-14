@@ -49,10 +49,10 @@ export function AuditorPanel({ auditorState, agents }: Props) {
                   width: `${Math.min(100, composite * 100).toFixed(1)}%`,
                   background:
                     composite > SUSPICION_HIGH_THRESHOLD
-                      ? '#f06292'
+                      ? BAR_COLORS.behavioralFingerprint
                       : composite > SUSPICION_MED_THRESHOLD
-                        ? '#ffb74d'
-                        : '#4fc3f7',
+                        ? BAR_COLORS.timingClustering
+                        : BAR_COLORS.predictiveCorrelation,
                   transition: 'width 0.2s',
                 }}
               />

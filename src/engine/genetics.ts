@@ -5,6 +5,22 @@ import type { Agent, AgentId, Genome, MarketState, SimConfig } from './types';
 
 const CROSSOVER_CHANCE = 0.5;
 
+function maybeMutateNumber(
+  value: number,
+  prng: PrngState,
+  config: SimConfig,
+  lo: number,
+  hi: number,
+): [number, PrngState] {
+  let p = prng;
+  let gate: number;
+  [p, gate] = nextFloat(p);
+  if (gate >= config.mutationRate) return [value, p];
+  let delta: number;
+  [p, delta] = nextFloat(p);
+  return [clamp(value + (delta - 0.5) * 2 * config.mutationMagnitude, lo, hi), p];
+}
+
 export function rankAgents(
   agents: readonly Agent[],
   marketState: MarketState,
@@ -32,59 +48,37 @@ export function mutateGenome(
     ...genome.signalWeights,
   ] as [number, number, number, number, number, number];
   for (let i = 0; i < 6; i++) {
+    // Signal weights are unbounded — use a wide range that maybeMutateNumber won't actually clamp
+    let w: number;
+    [w, p] = maybeMutateNumber(newWeights[i]!, p, config, -Infinity, Infinity);
+    newWeights[i] = w;
+  }
+
+  let lookbackWindow: number;
+  // lookbackWindow uses a smaller step (4) rather than mutationMagnitude — handled inline
+  {
     let gate: number;
     [p, gate] = nextFloat(p);
     if (gate < config.mutationRate) {
       let delta: number;
       [p, delta] = nextFloat(p);
-      newWeights[i] = newWeights[i]! + (delta - 0.5) * 2 * config.mutationMagnitude;
+      lookbackWindow = Math.max(1, Math.round(genome.lookbackWindow + (delta - 0.5) * 4));
+    } else {
+      lookbackWindow = genome.lookbackWindow;
     }
   }
 
-  let lookbackWindow = genome.lookbackWindow;
-  let gwLb: number;
-  [p, gwLb] = nextFloat(p);
-  if (gwLb < config.mutationRate) {
-    let delta: number;
-    [p, delta] = nextFloat(p);
-    lookbackWindow = Math.max(1, Math.round(lookbackWindow + (delta - 0.5) * 4));
-  }
+  let buyThreshold: number;
+  [buyThreshold, p] = maybeMutateNumber(genome.buyThreshold, p, config, 0.001, 1);
 
-  let buyThreshold = genome.buyThreshold;
-  let gwBt: number;
-  [p, gwBt] = nextFloat(p);
-  if (gwBt < config.mutationRate) {
-    let delta: number;
-    [p, delta] = nextFloat(p);
-    buyThreshold = clamp(buyThreshold + (delta - 0.5) * 2 * config.mutationMagnitude, 0.001, 1);
-  }
+  let sellThreshold: number;
+  [sellThreshold, p] = maybeMutateNumber(genome.sellThreshold, p, config, 0.001, 1);
 
-  let sellThreshold = genome.sellThreshold;
-  let gwSt: number;
-  [p, gwSt] = nextFloat(p);
-  if (gwSt < config.mutationRate) {
-    let delta: number;
-    [p, delta] = nextFloat(p);
-    sellThreshold = clamp(sellThreshold + (delta - 0.5) * 2 * config.mutationMagnitude, 0.001, 1);
-  }
+  let positionSize: number;
+  [positionSize, p] = maybeMutateNumber(genome.positionSize, p, config, 0.01, 1);
 
-  let positionSize = genome.positionSize;
-  let gwPs: number;
-  [p, gwPs] = nextFloat(p);
-  if (gwPs < config.mutationRate) {
-    let delta: number;
-    [p, delta] = nextFloat(p);
-    positionSize = clamp(positionSize + (delta - 0.5) * 2 * config.mutationMagnitude, 0.01, 1);
-  }
-
-  let riskTolerance = genome.riskTolerance;
-  let gwRt: number;
-  [p, gwRt] = nextFloat(p);
-  if (gwRt < config.mutationRate) {
-    let delta: number;
-    [p, delta] = nextFloat(p);
-    riskTolerance = clamp(riskTolerance + (delta - 0.5) * 2 * config.mutationMagnitude, 0, 1);
-  }
+  let riskTolerance: number;
+  [riskTolerance, p] = maybeMutateNumber(genome.riskTolerance, p, config, 0, 1);
 
   const newGenome: Genome = {
     signalWeights: newWeights,
@@ -97,35 +91,42 @@ export function mutateGenome(
   return [newGenome, p];
 }
 
+function pickFrom<T>(a: T, b: T, prng: PrngState): [T, PrngState] {
+  let p = prng;
+  let coin: number;
+  [p, coin] = nextFloat(p);
+  return [coin < 0.5 ? a : b, p];
+}
+
 export function crossoverGenomes(a: Genome, b: Genome, prng: PrngState): [Genome, PrngState] {
   let p = prng;
 
   // Uniform crossover: each gene independently drawn from a or b
   const newWeights: [number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0];
   for (let i = 0; i < 6; i++) {
-    let coin: number;
-    [p, coin] = nextFloat(p);
-    newWeights[i] = coin < 0.5 ? a.signalWeights[i]! : b.signalWeights[i]!;
+    let w: number;
+    [w, p] = pickFrom(a.signalWeights[i]!, b.signalWeights[i]!, p);
+    newWeights[i] = w;
   }
 
-  let coinLb: number;
-  [p, coinLb] = nextFloat(p);
-  let coinBt: number;
-  [p, coinBt] = nextFloat(p);
-  let coinSt: number;
-  [p, coinSt] = nextFloat(p);
-  let coinPs: number;
-  [p, coinPs] = nextFloat(p);
-  let coinRt: number;
-  [p, coinRt] = nextFloat(p);
+  let lookbackWindow: number;
+  [lookbackWindow, p] = pickFrom(a.lookbackWindow, b.lookbackWindow, p);
+  let buyThreshold: number;
+  [buyThreshold, p] = pickFrom(a.buyThreshold, b.buyThreshold, p);
+  let sellThreshold: number;
+  [sellThreshold, p] = pickFrom(a.sellThreshold, b.sellThreshold, p);
+  let positionSize: number;
+  [positionSize, p] = pickFrom(a.positionSize, b.positionSize, p);
+  let riskTolerance: number;
+  [riskTolerance, p] = pickFrom(a.riskTolerance, b.riskTolerance, p);
 
   const child: Genome = {
     signalWeights: newWeights,
-    lookbackWindow: coinLb < 0.5 ? a.lookbackWindow : b.lookbackWindow,
-    buyThreshold: coinBt < 0.5 ? a.buyThreshold : b.buyThreshold,
-    sellThreshold: coinSt < 0.5 ? a.sellThreshold : b.sellThreshold,
-    positionSize: coinPs < 0.5 ? a.positionSize : b.positionSize,
-    riskTolerance: coinRt < 0.5 ? a.riskTolerance : b.riskTolerance,
+    lookbackWindow,
+    buyThreshold,
+    sellThreshold,
+    positionSize,
+    riskTolerance,
   };
   return [child, p];
 }
@@ -183,7 +184,6 @@ export function evolveGeneration(
       genome: childGenome,
       portfolio: { cash: config.startingCapital, positions: new Map() },
       isOracle: false,
-      oracleDelay: 0,
     });
   }
 

@@ -40,7 +40,7 @@ export function createAgent(
     cash: startingCapital,
     positions: new Map(),
   };
-  return { id, genome, concealmentGenome, portfolio, isOracle, oracleDelay: 0 };
+  return { id, genome, concealmentGenome, portfolio, isOracle };
 }
 
 export function portfolioValue(agent: Agent, marketState: MarketState): number {

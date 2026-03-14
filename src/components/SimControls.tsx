@@ -31,6 +31,15 @@ const BTN: React.CSSProperties = {
   fontWeight: 'bold',
 };
 
+const INPUT_BASE: React.CSSProperties = {
+  background: '#222',
+  color: '#eee',
+  border: '1px solid #444',
+  borderRadius: 3,
+  padding: '2px 4px',
+  fontFamily: 'monospace',
+};
+
 export function SimControls({
   isRunning,
   start,
@@ -98,15 +107,7 @@ export function SimControls({
           min={2}
           max={10}
           value={config.numAgents}
-          style={{
-            width: 50,
-            background: '#222',
-            color: '#eee',
-            border: '1px solid #444',
-            borderRadius: 3,
-            padding: '2px 4px',
-            fontFamily: 'monospace',
-          }}
+          style={{ ...INPUT_BASE, width: 50 }}
           onChange={(e) => onConfigChange({ numAgents: Number(e.target.value) })}
         />
         <label style={{ color: '#888', fontSize: 12 }}>Stocks</label>
@@ -115,15 +116,7 @@ export function SimControls({
           min={1}
           max={10}
           value={config.numStocks}
-          style={{
-            width: 50,
-            background: '#222',
-            color: '#eee',
-            border: '1px solid #444',
-            borderRadius: 3,
-            padding: '2px 4px',
-            fontFamily: 'monospace',
-          }}
+          style={{ ...INPUT_BASE, width: 50 }}
           onChange={(e) => onConfigChange({ numStocks: Number(e.target.value) })}
         />
         <label style={{ color: '#888', fontSize: 12 }}>Ticks/Round</label>
@@ -133,15 +126,7 @@ export function SimControls({
           max={500}
           step={10}
           value={config.numTicks}
-          style={{
-            width: 60,
-            background: '#222',
-            color: '#eee',
-            border: '1px solid #444',
-            borderRadius: 3,
-            padding: '2px 4px',
-            fontFamily: 'monospace',
-          }}
+          style={{ ...INPUT_BASE, width: 60 }}
           onChange={(e) => onConfigChange({ numTicks: Number(e.target.value) })}
         />
       </div>

@@ -78,7 +78,10 @@ export function tickGame(state: GameState): GameState {
   let agents: Agent[] = [...state.agents];
   const newTrades: Trade[] = [];
   const oracleStates = new Map(state.oracleStates);
-  const currentTradeLog: readonly Trade[] = state.tradeLog;
+
+  // Snapshot the trade log reference before appending so agents only see prior-tick trades.
+  // The underlying array is mutated in place after the agent loop (see below).
+  const tradeLogSnapshot = state.tradeLog;
 
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i]!;
@@ -92,7 +95,7 @@ export function tickGame(state: GameState): GameState {
         agent,
         oracleState,
         newMarket,
-        currentTradeLog,
+        tradeLogSnapshot,
         state.config,
         p,
       );
@@ -100,7 +103,7 @@ export function tickGame(state: GameState): GameState {
     } else {
       // selectAndDecide draws volumeNoise once and uses it consistently for both
       // stock selection and action threshold evaluation.
-      [action, stockId, p] = selectAndDecide(agent, newMarket, currentTradeLog, p);
+      [action, stockId, p] = selectAndDecide(agent, newMarket, tradeLogSnapshot, p);
     }
 
     let trade: Trade | null = null;
@@ -121,10 +124,14 @@ export function tickGame(state: GameState): GameState {
     agents.map((a) => a.id),
   );
 
-  const newPortfolioHistory = new Map(state.portfolioHistory);
+  // Append trades and portfolio snapshots in-place — O(k) per tick instead of O(n).
+  // These arrays are owned by the current round; resolveRound creates fresh ones.
+  // Callers always reassign (state = tickGame(state)), so the old reference is dropped.
+  for (const trade of newTrades) {
+    (state.tradeLog as Trade[]).push(trade);
+  }
   for (const agent of agents) {
-    const history = newPortfolioHistory.get(agent.id) ?? [];
-    newPortfolioHistory.set(agent.id, [...history, portfolioValue(agent, newMarket)]);
+    (state.portfolioHistory.get(agent.id) as number[]).push(portfolioValue(agent, newMarket));
   }
 
   const newTick = state.tick + 1;
@@ -137,10 +144,9 @@ export function tickGame(state: GameState): GameState {
     agents,
     oracleStates,
     auditor: newAuditor,
-    tradeLog: [...currentTradeLog, ...newTrades],
-    portfolioHistory: newPortfolioHistory,
     prng: p,
     phase: newPhase,
+    // tradeLog and portfolioHistory are mutated in place above; they propagate via ...state
   };
 }
 
@@ -180,7 +186,6 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
   const resetAgents: Agent[] = state.agents.map((a) => ({
     ...a,
     portfolio: { cash: state.config.startingCapital, positions: new Map() },
-    oracleDelay: 0,
   }));
 
   const resetOracleStates = new Map<AgentId, OracleState>();

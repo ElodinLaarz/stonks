@@ -1,6 +1,6 @@
 import { nextFloat, nextInt } from './prng';
 import type { PrngState } from './prng';
-import { decideAction, findBestStockForAgent } from './agent';
+import { selectAndDecide } from './agent';
 import { tickMarket } from './market';
 import type {
   Agent,
@@ -60,15 +60,14 @@ export function oracleDecideAction(
     return ['hold', pending.stockId, { pendingAction: newPending }, p];
   }
 
-  // Noise gate: act like a regular agent instead of using lookahead
+  // Noise gate: act exactly like a regular agent (single volumeNoise draw for both
+  // stock selection and threshold evaluation, matching selectAndDecide's contract).
   let noiseRoll: number;
   [p, noiseRoll] = nextFloat(p);
   if (noiseRoll < concealmentGenome.noiseRate) {
-    let volumeNoise: number;
-    [p, volumeNoise] = nextFloat(p);
-    const bestStockId = findBestStockForAgent(agent, marketState, tradeLog, volumeNoise);
     let action: TradeAction;
-    [action, p] = decideAction(agent, bestStockId, marketState, tradeLog, p);
+    let bestStockId: StockId;
+    [action, bestStockId, p] = selectAndDecide(agent, marketState, tradeLog, p);
     return [action, bestStockId, oracleState, p];
   }
 
