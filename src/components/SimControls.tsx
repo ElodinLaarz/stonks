@@ -71,16 +71,10 @@ export function SimControls({
   // Sync display when config changes externally (e.g. Reset button).
   useEffect(() => {
     setAgentsStr(String(config.numAgents));
-  }, [config.numAgents]);
-  useEffect(() => {
     setStocksStr(String(config.numStocks));
-  }, [config.numStocks]);
-  useEffect(() => {
     setTicksStr(String(config.numTicks));
-  }, [config.numTicks]);
-  useEffect(() => {
     setCullStr(String(Math.round(config.replacementRate * 100)));
-  }, [config.replacementRate]);
+  }, [config.numAgents, config.numStocks, config.numTicks, config.replacementRate]);
 
   const atRoundEnd = phase === 'roundEnd';
   return (
@@ -158,7 +152,7 @@ export function SimControls({
           onChange={(e) => {
             setAgentsStr(e.target.value);
             const v = Number(e.target.value);
-            if (v >= 2 && v <= 100) onConfigChange({ numAgents: v });
+            if (Number.isInteger(v) && v >= 2 && v <= 100) onConfigChange({ numAgents: v });
           }}
           onBlur={() => setAgentsStr(String(config.numAgents))}
         />
@@ -172,7 +166,7 @@ export function SimControls({
           onChange={(e) => {
             setStocksStr(e.target.value);
             const v = Number(e.target.value);
-            if (v >= 1 && v <= 100) onConfigChange({ numStocks: v });
+            if (Number.isInteger(v) && v >= 1 && v <= 100) onConfigChange({ numStocks: v });
           }}
           onBlur={() => setStocksStr(String(config.numStocks))}
         />
@@ -187,7 +181,7 @@ export function SimControls({
           onChange={(e) => {
             setTicksStr(e.target.value);
             const v = Number(e.target.value);
-            if (v >= 10 && v <= 10000) onConfigChange({ numTicks: v });
+            if (Number.isInteger(v) && v >= 10 && v <= 10000) onConfigChange({ numTicks: v });
           }}
           onBlur={() => setTicksStr(String(config.numTicks))}
         />

@@ -195,9 +195,13 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     roundEndDataRef.current = null;
     setRoundEndData(null);
     setRoundHistory([]);
-    const fresh = createGameState(configRef.current);
-    stateRef.current = fresh;
-    setSnapshot(fresh);
+    try {
+      const fresh = createGameState(configRef.current);
+      stateRef.current = fresh;
+      setSnapshot(fresh);
+    } catch {
+      // Invalid config (e.g. numAgents < 2 while user is mid-edit); keep current state.
+    }
   }, [pause]);
 
   const continueRound = useCallback(() => {

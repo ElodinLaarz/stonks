@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { RoundSummaryData } from '../hooks/useSimulation';
 import { THEME } from './agentColors';
 
@@ -33,6 +33,7 @@ function RoundRow({ summary, index }: { summary: RoundSummaryData; index: number
   const { round, generation, accusedId, oracleId, oracleCaught, rankedAgents, replacedAgentIds } =
     summary;
 
+  const replacedSet = useMemo(() => new Set(replacedAgentIds), [replacedAgentIds]);
   const winner = rankedAgents[0];
   const oracleWon = !oracleCaught && winner?.agentId === oracleId;
 
@@ -97,7 +98,7 @@ function RoundRow({ summary, index }: { summary: RoundSummaryData; index: number
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {rankedAgents.map((entry, rank) => {
-              const isCulled = replacedAgentIds.includes(entry.agentId);
+              const isCulled = replacedSet.has(entry.agentId);
               const isOrc = entry.agentId === oracleId;
               return (
                 <div
@@ -132,14 +133,13 @@ function RoundRow({ summary, index }: { summary: RoundSummaryData; index: number
 }
 
 export function RoundHistoryPanel({ history }: Props) {
-  if (history.length === 0) {
+  const reversed = useMemo(() => [...history].reverse(), [history]);
+
+  if (reversed.length === 0) {
     return (
       <div style={{ ...PANEL, color: '#444', padding: '8px 0' }}>No rounds completed yet.</div>
     );
   }
-
-  // Display newest first
-  const reversed = [...history].reverse();
 
   return (
     <div style={PANEL}>

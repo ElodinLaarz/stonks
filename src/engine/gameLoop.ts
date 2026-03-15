@@ -218,6 +218,23 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
 
   const freshAuditor = createAuditorState(resetAgents.map((a) => a.id));
 
+  // Build a fitness map aligned with the post-replacement population so evolveGeneration
+  // ranks correctly. Survivors carry their actual round-end value; newborns get the median
+  // survivor fitness as a neutral baseline (avoids skewing GA selection to 0).
+  const survivorValues = agentsAfterReplacement
+    .filter((a) => roundEndPortfolioValues.has(a.id))
+    .map((a) => roundEndPortfolioValues.get(a.id)!);
+  const medianSurvivorValue =
+    survivorValues.length > 0
+      ? survivorValues.sort((x, y) => x - y)[Math.floor(survivorValues.length / 2)]!
+      : state.config.startingCapital;
+  const alignedFitnessValues = new Map<AgentId, number>(
+    agentsAfterReplacement.map((a) => [
+      a.id,
+      roundEndPortfolioValues.get(a.id) ?? medianSurvivorValue,
+    ]),
+  );
+
   const newState: GameState = {
     ...state,
     round: nextRound,
@@ -229,7 +246,7 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     auditor: freshAuditor,
     tradeLog: [],
     portfolioHistory: resetPortfolioHistory,
-    roundEndPortfolioValues,
+    roundEndPortfolioValues: alignedFitnessValues,
     prng: roundPrng,
     phase: isGenerationEnd ? 'generationEnd' : 'running',
   };

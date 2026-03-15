@@ -132,14 +132,14 @@ export function crossoverGenomes(a: Genome, b: Genome, prng: PrngState): [Genome
 }
 
 /**
- * Breeds a single child agent from the top performers via optional crossover + mutation.
- * Returns the child genome and the new PRNG state.
+ * Breeds a single child genome from the top performers via optional crossover + mutation.
+ * Returns the child genome, the primary parent (for field inheritance), and the new PRNG state.
  */
 function breedChild(
   topPerformers: readonly Agent[],
   config: SimConfig,
   prng: PrngState,
-): [Genome, PrngState] {
+): [Genome, Agent, PrngState] {
   let p = prng;
 
   let parentIdx: number;
@@ -160,7 +160,7 @@ function breedChild(
   }
 
   [childGenome, p] = mutateGenome(childGenome, config, p);
-  return [childGenome, p];
+  return [childGenome, parent, p];
 }
 
 /**
@@ -197,16 +197,17 @@ export function replaceBottomAgents(
     replacedSet.add(forceReplaceId);
   }
   const replacedIds = [...replacedSet];
+  // survivors is sorted ascending; the best performers are at the end
   const survivors = sorted.filter((a) => !replacedSet.has(a.id));
-  const topPerformers = survivors; // best agents breed replacements (sorted ascending, survivors are the top)
 
   const newAgents: Agent[] = [...survivors];
   let childIdx = 0;
   while (newAgents.length < n) {
     let childGenome: Genome;
-    [childGenome, p] = breedChild(topPerformers, config, p);
+    let parentAgent: Agent;
+    [childGenome, parentAgent, p] = breedChild(survivors, config, p);
     newAgents.push({
-      ...topPerformers[0]!, // inherit concealment genome from a top performer
+      ...parentAgent,
       id: `agent_gen${agentEpoch}_${childIdx}`,
       genome: childGenome,
       portfolio: { cash: config.startingCapital, positions: new Map() },
@@ -227,7 +228,7 @@ export function evolveGeneration(
 ): [readonly Agent[], PrngState] {
   let p = prng;
 
-  // Rank by pre-reset portfolio values captured at round end; fall back to 0 for unknown agents.
+  // Rank descending by fitness; fall back to 0 for unknown agents.
   const ranked = [...agents].sort(
     (a, b) => (fitnessValues.get(b.id) ?? 0) - (fitnessValues.get(a.id) ?? 0),
   );
@@ -243,9 +244,10 @@ export function evolveGeneration(
   let childIdx = 0;
   while (newAgents.length < n) {
     let childGenome: Genome;
-    [childGenome, p] = breedChild(topPerformers, config, p);
+    let parentAgent: Agent;
+    [childGenome, parentAgent, p] = breedChild(topPerformers, config, p);
     newAgents.push({
-      ...topPerformers[0]!,
+      ...parentAgent,
       id: `agent_gen${agentEpoch}_${childIdx}`,
       genome: childGenome,
       portfolio: { cash: config.startingCapital, positions: new Map() },
