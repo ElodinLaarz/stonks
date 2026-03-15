@@ -1,24 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { createGameState, tickGame, resolveRound, resolveGeneration } from '../gameLoop';
+import { createGameState, tickGame, resolveGeneration } from '../gameLoop';
 import { DEFAULT_SIM_CONFIG } from '../types';
 import type { SimConfig } from '../types';
 
 const config: SimConfig = {
   ...DEFAULT_SIM_CONFIG,
-  numAgents: 3,
+  numAgents: 4,
   numStocks: 2,
   numTicks: 5,
   shockFrequency: 999_999,
   roundsPerGeneration: 2,
   maxGenerations: 3,
-  replacementRate: 0.34, // ceil(3 * 0.34) = 2, bounded to [1, n-1=2], so 1 or 2 agents replaced
 };
 
 describe('createGameState', () => {
-  it('initializes at tick 0, round 0, generation 0', () => {
+  it('initializes at tick 0, generation 0', () => {
     const state = createGameState(config);
     expect(state.tick).toBe(0);
-    expect(state.round).toBe(0);
     expect(state.generation).toBe(0);
   });
 
@@ -27,21 +25,38 @@ describe('createGameState', () => {
     expect(state.agentEpoch).toBe(0);
   });
 
-  it('creates correct number of agents', () => {
+  it('creates correct number of parallel rounds', () => {
     const state = createGameState(config);
-    expect(state.agents.length).toBe(config.numAgents);
+    expect(state.rounds.length).toBe(config.roundsPerGeneration);
+  });
+
+  it('each round has correct number of agents', () => {
+    const state = createGameState(config);
+    for (const round of state.rounds) {
+      expect(round.agents.length).toBe(config.numAgents);
+    }
   });
 
   it('agent IDs use gen0 naming', () => {
     const state = createGameState(config);
-    for (const agent of state.agents) {
-      expect(agent.id).toMatch(/^agent_gen0_\d+$/);
+    for (const round of state.rounds) {
+      for (const agent of round.agents) {
+        expect(agent.id).toMatch(/^agent_gen0_\d+$/);
+      }
     }
   });
 
-  it('exactly one oracle agent', () => {
+  it('exactly one oracle per round', () => {
     const state = createGameState(config);
-    expect(state.agents.filter((a) => a.isOracle).length).toBe(1);
+    for (const round of state.rounds) {
+      expect(round.agents.filter((a) => a.isOracle).length).toBe(1);
+    }
+  });
+
+  it('same oracle across all rounds', () => {
+    const state = createGameState(config);
+    const oracleIds = state.rounds.map((r) => r.agents.find((a) => a.isOracle)!.id);
+    expect(new Set(oracleIds).size).toBe(1);
   });
 
   it('phase starts as running', () => {
@@ -49,10 +64,12 @@ describe('createGameState', () => {
     expect(state.phase).toBe('running');
   });
 
-  it('all agents start with correct capital', () => {
+  it('all agents start with correct capital in each round', () => {
     const state = createGameState(config);
-    for (const agent of state.agents) {
-      expect(agent.portfolio.cash).toBe(config.startingCapital);
+    for (const round of state.rounds) {
+      for (const agent of round.agents) {
+        expect(agent.portfolio.cash).toBe(config.startingCapital);
+      }
     }
   });
 });
@@ -64,190 +81,147 @@ describe('tickGame', () => {
     expect(state.tick).toBe(1);
   });
 
-  it('trade log grows as trades occur', () => {
+  it('advances all rounds', () => {
     let state = createGameState(config);
-    for (let i = 0; i < 5; i++) {
-      state = tickGame(state);
+    state = tickGame(state);
+    for (const round of state.rounds) {
+      expect(round.market.tick).toBe(1);
     }
-    // tradeLog might be empty (if all hold), but it should not error
-    expect(state.tradeLog).toBeInstanceOf(Array);
   });
 
-  it('transitions to roundEnd after numTicks', () => {
+  it('trade logs grow across rounds', () => {
     let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) {
-      state = tickGame(state);
+    for (let i = 0; i < 5; i++) state = tickGame(state);
+    for (const round of state.rounds) {
+      expect(round.tradeLog).toBeInstanceOf(Array);
     }
-    expect(state.phase).toBe('roundEnd');
+  });
+
+  it('transitions to generationEnd after numTicks', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    expect(state.phase).toBe('generationEnd');
   });
 
   it('is deterministic from the same seed', () => {
-    const runGame = (ticks: number) => {
+    const run = (ticks: number) => {
       let state = createGameState(config);
       for (let i = 0; i < ticks; i++) state = tickGame(state);
       return state;
     };
-    const a = runGame(5);
-    const b = runGame(5);
+    const a = run(5);
+    const b = run(5);
     expect(a.tick).toBe(b.tick);
-    expect(a.tradeLog.length).toBe(b.tradeLog.length);
-    expect(a.market.tick).toBe(b.market.tick);
+    expect(a.rounds[0]!.tradeLog.length).toBe(b.rounds[0]!.tradeLog.length);
   });
 
   it('no-ops when phase is not running', () => {
     let state = createGameState(config);
     for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    expect(state.phase).toBe('roundEnd');
-    const stateAfter = tickGame(state);
-    expect(stateAfter.tick).toBe(state.tick); // no additional tick
-  });
-});
-
-describe('resolveRound', () => {
-  it('increments round counter', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    expect(newState.round).toBe(1);
-  });
-
-  it('resets tick to 0', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    expect(newState.tick).toBe(0);
-  });
-
-  it('increments agentEpoch', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    expect(newState.agentEpoch).toBe(1);
-  });
-
-  it('transitions to generationEnd after roundsPerGeneration rounds', () => {
-    let state = createGameState(config);
-    for (let r = 0; r < config.roundsPerGeneration; r++) {
-      for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-      const [ns] = resolveRound(state);
-      state = ns;
-    }
     expect(state.phase).toBe('generationEnd');
-  });
-
-  it('returns correct RoundResult', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [, result] = resolveRound(state);
-    expect(result.generation).toBe(0);
-    expect(result.round).toBe(0);
-    expect(typeof result.oracleId).toBe('string');
-    expect(result.portfolioRanking.length).toBeGreaterThan(0);
-  });
-
-  it('replacedAgentIds has at least 1 and at most n-1 entries', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [, result] = resolveRound(state);
-    expect(result.replacedAgentIds.length).toBeGreaterThanOrEqual(1);
-    expect(result.replacedAgentIds.length).toBeLessThanOrEqual(config.numAgents - 1);
-  });
-
-  it('new agents born in the next epoch carry the correct ID prefix', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    // All agents born in epoch 1 should have agent_gen1_ prefix
-    const freshAgents = newState.agents.filter((a) => !state.agents.some((old) => old.id === a.id));
-    expect(freshAgents.every((a) => a.id.startsWith('agent_gen1_'))).toBe(true);
-  });
-
-  it('next state has exactly one oracle after resolveRound', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    expect(newState.agents.filter((a) => a.isOracle).length).toBe(1);
-  });
-
-  it('oracle selection is deterministic for a fixed seed', () => {
-    const runToRoundEnd = () => {
-      let state = createGameState(config);
-      for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-      return resolveRound(state);
-    };
-    const [newStateA] = runToRoundEnd();
-    const [newStateB] = runToRoundEnd();
-    const oracleA = newStateA.agents.find((a) => a.isOracle)!.id;
-    const oracleB = newStateB.agents.find((a) => a.isOracle)!.id;
-    expect(oracleA).toBe(oracleB);
-  });
-
-  it('prng advances when resolveRound selects the next oracle', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const prngBefore = state.prng;
-    const [newState] = resolveRound(state);
-    expect(newState.prng).not.toEqual(prngBefore);
-  });
-
-  it('resets agent portfolios to startingCapital', () => {
-    let state = createGameState(config);
-    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-    const [newState] = resolveRound(state);
-    for (const agent of newState.agents) {
-      expect(agent.portfolio.cash).toBe(config.startingCapital);
-      expect(agent.portfolio.positions.size).toBe(0);
-    }
+    const after = tickGame(state);
+    expect(after.tick).toBe(state.tick);
   });
 });
 
 describe('resolveGeneration', () => {
-  function runToGenerationEnd(): ReturnType<typeof createGameState> {
+  function runToGenerationEnd() {
     let state = createGameState(config);
-    for (let r = 0; r < config.roundsPerGeneration; r++) {
-      for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-      const [ns] = resolveRound(state);
-      state = ns;
-    }
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
     return state;
   }
 
   it('increments generation', () => {
-    const genEndState = runToGenerationEnd();
-    const newState = resolveGeneration(genEndState);
+    const [newState] = resolveGeneration(runToGenerationEnd());
     expect(newState.generation).toBe(1);
   });
 
-  it('resets round and tick to 0', () => {
-    const genEndState = runToGenerationEnd();
-    const newState = resolveGeneration(genEndState);
-    expect(newState.round).toBe(0);
+  it('resets tick to 0', () => {
+    const [newState] = resolveGeneration(runToGenerationEnd());
     expect(newState.tick).toBe(0);
   });
 
   it('increments agentEpoch', () => {
     const genEndState = runToGenerationEnd();
-    const epochBefore = genEndState.agentEpoch;
-    const newState = resolveGeneration(genEndState);
-    expect(newState.agentEpoch).toBe(epochBefore + 1);
+    const [newState] = resolveGeneration(genEndState);
+    expect(newState.agentEpoch).toBe(genEndState.agentEpoch + 1);
+  });
+
+  it('creates correct number of new rounds', () => {
+    const [newState] = resolveGeneration(runToGenerationEnd());
+    expect(newState.rounds.length).toBe(config.roundsPerGeneration);
+  });
+
+  it('returns round results for each parallel round', () => {
+    const genEndState = runToGenerationEnd();
+    const [, result] = resolveGeneration(genEndState);
+    expect(result.generation).toBe(0);
+    expect(result.roundResults.length).toBe(config.roundsPerGeneration);
+  });
+
+  it('each round result has an oracle', () => {
+    const [, result] = resolveGeneration(runToGenerationEnd());
+    for (const rr of result.roundResults) {
+      expect(typeof rr.oracleId).toBe('string');
+      expect(rr.portfolioRanking.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('replacedAgentIds is non-empty', () => {
+    const [, result] = resolveGeneration(runToGenerationEnd());
+    expect(result.replacedAgentIds.length).toBeGreaterThan(0);
+  });
+
+  it('new agents carry the correct epoch in their ID', () => {
+    const genEndState = runToGenerationEnd();
+    const canonicalIds = new Set(genEndState.rounds[0]!.agents.map((a) => a.id));
+    const [newState] = resolveGeneration(genEndState);
+    const freshAgents = newState.rounds[0]!.agents.filter((a) => !canonicalIds.has(a.id));
+    expect(freshAgents.every((a) => a.id.startsWith('agent_gen1_'))).toBe(true);
+  });
+
+  it('exactly one oracle per round after evolution', () => {
+    const [newState] = resolveGeneration(runToGenerationEnd());
+    for (const round of newState.rounds) {
+      expect(round.agents.filter((a) => a.isOracle).length).toBe(1);
+    }
+  });
+
+  it('same oracle across all new rounds', () => {
+    const [newState] = resolveGeneration(runToGenerationEnd());
+    const oracleIds = newState.rounds.map((r) => r.agents.find((a) => a.isOracle)!.id);
+    expect(new Set(oracleIds).size).toBe(1);
+  });
+
+  it('is deterministic', () => {
+    const [a] = resolveGeneration(runToGenerationEnd());
+    const [b] = resolveGeneration(runToGenerationEnd());
+    expect(a.rounds[0]!.agents.map((x) => x.id)).toEqual(b.rounds[0]!.agents.map((x) => x.id));
+    expect(a.generation).toBe(b.generation);
   });
 
   it('transitions to finished after maxGenerations', () => {
     let state = createGameState(config);
     for (let g = 0; g < config.maxGenerations; g++) {
-      for (let r = 0; r < config.roundsPerGeneration; r++) {
-        for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
-        const [ns] = resolveRound(state);
-        state = ns;
-      }
-      state = resolveGeneration(state);
+      for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+      [state] = resolveGeneration(state);
     }
     expect(state.phase).toBe('finished');
   });
 
   it('no-ops when phase is not generationEnd', () => {
     const state = createGameState(config);
-    const after = resolveGeneration(state);
+    const [after] = resolveGeneration(state);
     expect(after).toBe(state);
+  });
+
+  it('all new round agents start with correct capital', () => {
+    const [newState] = resolveGeneration(runToGenerationEnd());
+    for (const round of newState.rounds) {
+      for (const agent of round.agents) {
+        expect(agent.portfolio.cash).toBe(config.startingCapital);
+        expect(agent.portfolio.positions.size).toBe(0);
+      }
+    }
   });
 });

@@ -163,69 +163,13 @@ function breedChild(
   return [childGenome, parent, p];
 }
 
-/**
- * Replaces the bottom `ceil(n * config.replacementRate)` agents (bounded to [1, n-1])
- * with children bred from the top performers. New agents are named agent_gen{agentEpoch}_{i}.
- *
- * If `forceReplaceId` is provided (e.g. a caught oracle), that agent is always culled
- * regardless of rank, as long as the total replacements remain below n-1.
- *
- * Returns [newAgents, replacedIds, newPrng].
- */
-export function replaceBottomAgents(
-  agents: readonly Agent[],
-  config: SimConfig,
-  fitnessValues: ReadonlyMap<AgentId, number>,
-  prng: PrngState,
-  agentEpoch: number,
-  forceReplaceId: AgentId | null = null,
-): [readonly Agent[], readonly AgentId[], PrngState] {
-  let p = prng;
-  const n = agents.length;
-
-  const rate = Math.min(0.99, Math.max(0.01, config.replacementRate));
-  const numToReplace = Math.min(Math.max(Math.ceil(n * rate), 1), n - 1);
-
-  // Sort ascending by fitness so the worst are at the front
-  const sorted = [...agents].sort(
-    (a, b) => (fitnessValues.get(a.id) ?? 0) - (fitnessValues.get(b.id) ?? 0),
-  );
-
-  const replacedSet = new Set<AgentId>(sorted.slice(0, numToReplace).map((a) => a.id));
-  // Force-include the caught oracle if not already culled, without exceeding n-1 total.
-  if (forceReplaceId !== null && !replacedSet.has(forceReplaceId) && replacedSet.size < n - 1) {
-    replacedSet.add(forceReplaceId);
-  }
-  const replacedIds = [...replacedSet];
-  // survivors is sorted ascending; the best performers are at the end
-  const survivors = sorted.filter((a) => !replacedSet.has(a.id));
-
-  const newAgents: Agent[] = [...survivors];
-  let childIdx = 0;
-  while (newAgents.length < n) {
-    let childGenome: Genome;
-    let parentAgent: Agent;
-    [childGenome, parentAgent, p] = breedChild(survivors, config, p);
-    newAgents.push({
-      ...parentAgent,
-      id: `agent_gen${agentEpoch}_${childIdx}`,
-      genome: childGenome,
-      portfolio: { cash: config.startingCapital, positions: new Map() },
-      isOracle: false,
-    });
-    childIdx++;
-  }
-
-  return [newAgents, replacedIds, p];
-}
-
 export function evolveGeneration(
   agents: readonly Agent[],
   config: SimConfig,
   fitnessValues: ReadonlyMap<AgentId, number>,
   prng: PrngState,
   agentEpoch: number,
-): [readonly Agent[], PrngState] {
+): [readonly Agent[], readonly AgentId[], PrngState] {
   let p = prng;
 
   // Rank descending by fitness; fall back to 0 for unknown agents.
@@ -234,8 +178,9 @@ export function evolveGeneration(
   );
 
   const n = ranked.length;
-  const cullCount = Math.floor(n / 4);
+  const cullCount = Math.max(1, Math.floor(n * config.replacementRate));
   const survivors = ranked.slice(0, n - cullCount);
+  const replacedIds = ranked.slice(n - cullCount).map((a) => a.id);
 
   // Fill culled slots with mutated/crossed copies of top performers
   const newAgents: Agent[] = [...survivors];
@@ -261,5 +206,5 @@ export function evolveGeneration(
   [p, oracleIdx] = nextInt(p, 0, newAgents.length - 1);
   const finalAgents: Agent[] = newAgents.map((a, i) => ({ ...a, isOracle: i === oracleIdx }));
 
-  return [finalAgents, p];
+  return [finalAgents, replacedIds, p];
 }

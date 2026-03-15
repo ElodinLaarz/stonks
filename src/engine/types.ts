@@ -26,17 +26,12 @@ export interface Stock {
   readonly id: StockId;
   readonly name: string;
   readonly initialPrice: number;
-  /**
-   * Price history. `tickMarket` returns a new `Stock` object with a new bars
-   * array each tick, preserving immutability for state forking (e.g. Oracle lookahead).
-   */
   readonly bars: readonly PriceBar[];
 }
 
 export interface MarketState {
   readonly tick: Tick;
   readonly stocks: readonly Stock[];
-  /** Resolved stock configurations, computed once at market creation. */
   readonly stockConfigs: readonly StockConfig[];
 }
 
@@ -47,20 +42,15 @@ export interface SimConfig {
   numTicks: number;
   oracleLookahead: number;
   startingCapital: number;
-  /** Annualized volatility applied to all stocks unless overridden. See DEFAULT_SIM_CONFIG. */
   stockVolatility: number;
-  /** Average ticks between shock events. See DEFAULT_SIM_CONFIG. */
   shockFrequency: number;
-  /** Optional per-stock overrides. Defaults to `numStocks` uniform stocks. */
   stockConfigs?: readonly StockConfig[];
+  /** Number of parallel rounds run simultaneously each generation. */
   roundsPerGeneration: number;
   mutationRate: number;
   mutationMagnitude: number;
   maxGenerations: number;
-  /**
-   * Fraction of agents replaced at the end of each round.
-   * Clamped to [0.01, 0.99]; actual count = ceil(n * rate), bounded to [1, n-1].
-   */
+  /** Fraction of agents culled each generation, e.g. 0.25 = bottom 25%. */
   replacementRate: number;
 }
 
@@ -73,7 +63,7 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
   startingCapital: 10_000,
   stockVolatility: 0.2,
   shockFrequency: 100,
-  roundsPerGeneration: 10,
+  roundsPerGeneration: 3,
   mutationRate: 0.1,
   mutationMagnitude: 0.05,
   maxGenerations: 10,
@@ -158,34 +148,47 @@ export interface AuditorState {
   readonly tradeHistories: ReadonlyMap<AgentId, AgentTradeHistory>;
 }
 
-export interface GameState {
-  readonly tick: Tick;
-  readonly round: number;
-  readonly generation: number;
-  /** Monotonically increasing counter; increments every time agents are replaced.
-   *  Used to derive new agent IDs: agent_gen{agentEpoch}_{i}. */
-  readonly agentEpoch: number;
+/** The state of a single parallel round within a generation. */
+export interface RoundState {
   readonly market: MarketState;
   readonly agents: readonly Agent[];
   readonly oracleStates: ReadonlyMap<AgentId, OracleState>;
   readonly auditor: AuditorState;
   readonly tradeLog: readonly Trade[];
   readonly portfolioHistory: ReadonlyMap<AgentId, readonly number[]>;
-  /** Portfolio values captured at end of each round (before reset) for use by the GA. */
+}
+
+export interface GameState {
+  readonly tick: Tick;
+  readonly generation: number;
+  /** Monotonically increasing counter; increments every time agents are replaced.
+   *  Used to derive new agent IDs: agent_gen{agentEpoch}_{i}. */
+  readonly agentEpoch: number;
+  /** All parallel rounds running simultaneously this generation. */
+  readonly rounds: readonly RoundState[];
+  /** Fitness aggregated across all rounds at generation end, used by the GA. */
   readonly roundEndPortfolioValues: ReadonlyMap<AgentId, number>;
   readonly prng: PrngState;
   readonly config: SimConfig;
-  readonly phase: 'running' | 'roundEnd' | 'generationEnd' | 'finished';
+  readonly phase: 'running' | 'generationEnd' | 'finished';
 }
 
-export interface RoundResult {
-  readonly generation: number;
-  readonly round: number;
+/** Result for one parallel round within a generation. */
+export interface PerRoundResult {
+  readonly roundIndex: number;
   readonly oracleId: AgentId;
   readonly auditorAccusation: AgentId | null;
   readonly auditorCorrect: boolean;
   readonly portfolioRanking: readonly AgentId[];
   readonly oracleWon: boolean;
-  /** IDs of agents that were culled at the end of this round. */
+  /** True when the oracle was caught AND had the highest portfolio value (auditor stopped the leader). */
+  readonly oracleWasLeading: boolean;
+}
+
+/** Result for an entire generation (all parallel rounds + GA step). */
+export interface GenerationResult {
+  readonly generation: number;
+  readonly roundResults: readonly PerRoundResult[];
+  /** Agent IDs culled by the GA at the end of this generation. */
   readonly replacedAgentIds: readonly AgentId[];
 }
