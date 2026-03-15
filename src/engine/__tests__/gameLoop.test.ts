@@ -125,6 +125,34 @@ describe('resolveRound', () => {
     expect(result.portfolioRanking.length).toBeGreaterThan(0);
   });
 
+  it('next state has exactly one oracle after resolveRound', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    const [newState] = resolveRound(state);
+    expect(newState.agents.filter((a) => a.isOracle).length).toBe(1);
+  });
+
+  it('oracle selection is deterministic for a fixed seed', () => {
+    const runToRoundEnd = () => {
+      let state = createGameState(config);
+      for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+      return resolveRound(state);
+    };
+    const [newStateA] = runToRoundEnd();
+    const [newStateB] = runToRoundEnd();
+    const oracleA = newStateA.agents.find((a) => a.isOracle)!.id;
+    const oracleB = newStateB.agents.find((a) => a.isOracle)!.id;
+    expect(oracleA).toBe(oracleB);
+  });
+
+  it('prng advances when resolveRound selects the next oracle', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    const prngBefore = state.prng;
+    const [newState] = resolveRound(state);
+    expect(newState.prng).not.toEqual(prngBefore);
+  });
+
   it('resets agent portfolios to startingCapital', () => {
     let state = createGameState(config);
     for (let i = 0; i < config.numTicks; i++) state = tickGame(state);

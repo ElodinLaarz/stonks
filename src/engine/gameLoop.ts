@@ -1,4 +1,4 @@
-import { createPrng } from './prng';
+import { createPrng, nextInt } from './prng';
 import type { PrngState } from './prng';
 import { createMarket, tickMarket } from './market';
 import {
@@ -26,27 +26,29 @@ import type {
 } from './types';
 
 export function createGameState(config: SimConfig): GameState {
-  const prng = createPrng(config.seed);
+  if (config.numAgents < 2) {
+    throw new Error(`config.numAgents must be at least 2, but got ${config.numAgents}`);
+  }
+  let prng = createPrng(config.seed);
   const market = createMarket(config);
 
-  const agents: Agent[] = [];
+  const rawAgents: Agent[] = [];
   const oracleStates = new Map<AgentId, OracleState>();
   const portfolioHistory = new Map<AgentId, number[]>();
 
   for (let i = 0; i < config.numAgents; i++) {
     const id = `agent_${i}`;
-    const isOracle = i === 0;
-    const agent = createAgent(
-      id,
-      DEFAULT_GENOME,
-      DEFAULT_CONCEALMENT_GENOME,
-      config.startingCapital,
-      isOracle,
+    rawAgents.push(
+      createAgent(id, DEFAULT_GENOME, DEFAULT_CONCEALMENT_GENOME, config.startingCapital, false),
     );
-    agents.push(agent);
     oracleStates.set(id, { pendingAction: null });
     portfolioHistory.set(id, [config.startingCapital]);
   }
+
+  // Randomly assign oracle so the auditor cannot learn to always accuse agent_0
+  let oracleIdx: number;
+  [prng, oracleIdx] = nextInt(prng, 0, config.numAgents - 1);
+  const agents: Agent[] = rawAgents.map((a, i) => ({ ...a, isOracle: i === oracleIdx }));
 
   const agentIds = agents.map((a) => a.id);
   return {
@@ -182,9 +184,15 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
   const nextRound = state.round + 1;
   const isGenerationEnd = nextRound >= state.config.roundsPerGeneration;
 
-  // Reset portfolios for next round
-  const resetAgents: Agent[] = state.agents.map((a) => ({
+  // Randomly rotate oracle for the next round so no fixed index is predictably privileged
+  let roundPrng = state.prng;
+  let nextOracleIdx: number;
+  [roundPrng, nextOracleIdx] = nextInt(roundPrng, 0, state.agents.length - 1);
+
+  // Reset portfolios and assign new oracle for next round
+  const resetAgents: Agent[] = state.agents.map((a, i) => ({
     ...a,
+    isOracle: i === nextOracleIdx,
     portfolio: { cash: state.config.startingCapital, positions: new Map() },
   }));
 
@@ -195,8 +203,6 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     resetPortfolioHistory.set(agent.id, [state.config.startingCapital]);
   }
 
-  // Start next round with a fresh auditor, but carry forward the accusation so the UI
-  // can display who was accused at round end.
   const freshAuditor = createAuditorState(resetAgents.map((a) => a.id));
 
   const newState: GameState = {
@@ -206,10 +212,11 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     market: createMarket(state.config),
     agents: resetAgents,
     oracleStates: resetOracleStates,
-    auditor: { ...freshAuditor, accusation },
+    auditor: freshAuditor,
     tradeLog: [],
     portfolioHistory: resetPortfolioHistory,
     roundEndPortfolioValues,
+    prng: roundPrng,
     phase: isGenerationEnd ? 'generationEnd' : 'running',
   };
 

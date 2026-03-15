@@ -8,6 +8,7 @@ import { PortfolioRace } from './components/PortfolioRace';
 import { TradeFeed } from './components/TradeFeed';
 import { AuditorPanel } from './components/AuditorPanel';
 import { SimControls } from './components/SimControls';
+import { RoundSummary } from './components/RoundSummary';
 
 const PANEL_STYLE: React.CSSProperties = {
   background: '#13131f',
@@ -24,7 +25,32 @@ const LABEL: React.CSSProperties = {
   marginBottom: 6,
   textTransform: 'uppercase',
   letterSpacing: 1,
+  cursor: 'default',
 };
+
+const PANEL_TOOLTIPS: Record<string, string> = {
+  'Price Chart':
+    'Geometric Brownian Motion price series for each stock. Occasional shock events cause sharp moves. All agents see this history; only the Oracle sees N ticks ahead.',
+  'Portfolio Race':
+    "Each agent's total portfolio value (cash + open positions) over time. The Oracle is shown as a dashed line (★). Higher is better — rankings at round end determine survival in the genetic algorithm.",
+  'Trade Feed':
+    'Real-time log of executed trades. Green = buy, red = sell. Agents trade one stock per tick based on six weighted signals: momentum, mean reversion, volatility, relative strength, volume proxy, and peer copying.',
+  'Auditor Panel':
+    'Suspicion scores computed from the trade log each tick. Four signals (predictive correlation, win rate, timing clustering, behavioral fingerprint) combine into a composite score. The highest-scoring agent is accused at round end.',
+};
+
+function PanelLabel({ children }: { children: string }) {
+  return (
+    <div style={LABEL} title={PANEL_TOOLTIPS[children]}>
+      {children}
+      {PANEL_TOOLTIPS[children] && (
+        <span style={{ color: '#444', fontSize: 10, marginLeft: 4, fontWeight: 'normal' }}>
+          (?)
+        </span>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const [config, setConfig] = useState<SimConfig>(DEFAULT_SIM_CONFIG);
@@ -41,6 +67,7 @@ function App() {
   }, []);
 
   const { state } = sim;
+  const atRoundEnd = state.phase === 'roundEnd';
 
   return (
     <div
@@ -63,6 +90,7 @@ function App() {
           start={sim.start}
           pause={sim.pause}
           reset={sim.reset}
+          continueRound={sim.continueRound}
           speed={speed}
           onSpeedChange={handleSpeedChange}
           config={config}
@@ -74,14 +102,18 @@ function App() {
         />
       </div>
 
+      {atRoundEnd && sim.roundSummary !== null && (
+        <RoundSummary summary={sim.roundSummary} onContinue={sim.continueRound} />
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
         <div style={PANEL_STYLE}>
-          <div style={LABEL}>Price Chart</div>
+          <PanelLabel>Price Chart</PanelLabel>
           <PriceChart stocks={state.market.stocks} tick={state.tick} />
         </div>
 
         <div style={PANEL_STYLE}>
-          <div style={LABEL}>Portfolio Race</div>
+          <PanelLabel>Portfolio Race</PanelLabel>
           <PortfolioRace
             portfolioHistory={state.portfolioHistory}
             agents={state.agents}
@@ -90,13 +122,17 @@ function App() {
         </div>
 
         <div style={PANEL_STYLE}>
-          <div style={LABEL}>Trade Feed</div>
+          <PanelLabel>Trade Feed</PanelLabel>
           <TradeFeed trades={state.tradeLog} maxVisible={30} />
         </div>
 
         <div style={PANEL_STYLE}>
-          <div style={LABEL}>Auditor Panel</div>
-          <AuditorPanel auditorState={state.auditor} agents={state.agents} />
+          <PanelLabel>Auditor Panel</PanelLabel>
+          <AuditorPanel
+            auditorState={state.auditor}
+            agents={state.agents}
+            currentAccusation={sim.currentAccusation}
+          />
         </div>
       </div>
     </div>

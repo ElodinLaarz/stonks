@@ -42,7 +42,7 @@ export function createAuditorState(agentIds: readonly AgentId[]): AuditorState {
     scores.set(id, ZERO_SCORES);
     tradeHistories.set(id, emptyHistory());
   }
-  return { scores, accusation: null, tradeHistories };
+  return { scores, tradeHistories };
 }
 
 export function updateSuspicion(
@@ -190,7 +190,7 @@ function computeSuspicionScores(
 export function makeAccusation(state: AuditorState): AgentId | null {
   if (state.scores.size === 0) return null;
   let bestId: AgentId | null = null;
-  let bestScore = -1;
+  let bestScore = 0; // require positive evidence before accusing anyone
   for (const [id, scores] of state.scores) {
     if (scores.composite > bestScore) {
       bestScore = scores.composite;
