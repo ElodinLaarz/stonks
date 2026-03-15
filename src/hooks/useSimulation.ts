@@ -80,6 +80,9 @@ function buildGenerationEndData(state: GameState): GenerationEndData {
   return { summary, nextState };
 }
 
+const MAX_TICKS_PER_FRAME = 50;
+const MS_PER_SECOND = 1000;
+
 export function useSimulation(config: SimConfig, speed: number = 10): SimulationControls {
   const [snapshot, setSnapshot] = useState<GameState>(() => createGameState(config));
   const stateRef = useRef<GameState>(snapshot);
@@ -119,8 +122,8 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     }
 
     const elapsed = timestamp - lastTimeRef.current;
-    const msPerTick = 1000 / speedRef.current;
-    const ticksToDo = Math.min(Math.floor(elapsed / msPerTick), 50); // cap at 50 ticks/frame
+    const msPerTick = MS_PER_SECOND / speedRef.current;
+    const ticksToDo = Math.min(Math.floor(elapsed / msPerTick), MAX_TICKS_PER_FRAME); // cap at MAX_TICKS_PER_FRAME ticks/frame
 
     if (ticksToDo > 0) {
       lastTimeRef.current = timestamp - (elapsed % msPerTick);

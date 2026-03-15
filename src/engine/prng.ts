@@ -42,6 +42,8 @@ export function createPrng(seed: number): PrngState {
   return { s: [s0, s1, s2, s3] };
 }
 
+const UINT32_RANGE = 0x100000000;
+
 function rotl(x: number, k: number): number {
   return ((x << k) | (x >>> (32 - k))) >>> 0;
 }
@@ -63,7 +65,7 @@ export function nextUint32(state: PrngState): [PrngState, number] {
 /** Returns [newState, float in [0, 1)]. */
 export function nextFloat(state: PrngState): [PrngState, number] {
   const [newState, u32] = nextUint32(state);
-  return [newState, u32 / 4294967296]; // divide by 2^32
+  return [newState, u32 / UINT32_RANGE];
 }
 
 /** Returns [newState, float in [lo, hi)]. */
@@ -92,11 +94,11 @@ export function nextInt(state: PrngState, lo: number, hi: number): [PrngState, n
     throw new RangeError(`nextInt: hi (${hi}) must be >= lo (${lo})`);
   }
   const span = hi - lo + 1;
-  if (span > 0x100000000) {
+  if (span > UINT32_RANGE) {
     throw new RangeError(`nextInt: range size (hi - lo + 1 = ${span}) must be <= 0x100000000`);
   }
   // Largest multiple of span that fits in [0, 2^32): values >= limit are rejected.
-  const limit = Math.floor(0x100000000 / span) * span;
+  const limit = Math.floor(UINT32_RANGE / span) * span;
   let p = state;
   for (;;) {
     let u32: number;
