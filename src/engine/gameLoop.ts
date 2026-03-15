@@ -192,7 +192,11 @@ export function resolveGeneration(state: GameState): [GameState, GenerationResul
   // Compute per-round oracle detection results
   const roundResults: PerRoundResult[] = state.rounds.map((round, ri) => {
     const oracleAgent = round.agents.find((a) => a.isOracle);
-    const oracleId = oracleAgent?.id ?? round.agents[0]!.id;
+    if (!oracleAgent) {
+      // This should be impossible if game state is constructed correctly.
+      throw new Error('Oracle not found in round ' + ri);
+    }
+    const oracleId = oracleAgent.id;
     const accusation = makeAccusation(round.auditor);
     const auditorCorrect = accusation === oracleId;
     const allRanked = rankAgents(round.agents, round.market, null);
