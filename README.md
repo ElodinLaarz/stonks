@@ -35,30 +35,30 @@ npm run build      # Production build
 
 ### Phase 1 — Core Engine ✅
 
-| Module | Description |
-|---|---|
-| `engine/types.ts` | All domain types — single source of truth |
-| `engine/prng.ts` | Xoshiro128+ seeded PRNG; immutable state threading; `nextFloat`, `nextInt` |
-| `engine/market.ts` | GBM price model; OHLC bars; configurable shock events |
-| `engine/agent.ts` | 6-signal genome (momentum, mean reversion, volatility, relative strength, volume proxy, peer copying); `selectAndDecide` draws `volumeNoise` once for consistent stock selection and action evaluation; immutable `executeTrade` |
-| `engine/oracle.ts` | PRNG-forked lookahead; delay jitter queue; noise gate delegates to `selectAndDecide` to match regular-agent behavior; style mimicry |
-| `engine/auditor.ts` | Incremental suspicion scoring (only agents with new trades are rescored per tick); `makeAccusation` at round end |
-| `engine/genetics.ts` | Cull bottom quartile; uniform crossover via `pickFrom`; per-gene mutation via `maybeMutateNumber`; deterministic agent ID generation from PRNG |
-| `engine/gameLoop.ts` | `createGameState` / `tickGame` / `resolveRound` / `resolveGeneration`; phase FSM: `running → roundEnd → generationEnd → finished`; `tradeLog` and `portfolioHistory` append in-place within a round (O(1) per tick) |
+| Module               | Description                                                                                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `engine/types.ts`    | All domain types — single source of truth                                                                                                                                                                                        |
+| `engine/prng.ts`     | Xoshiro128+ seeded PRNG; immutable state threading; `nextFloat`, `nextInt`                                                                                                                                                       |
+| `engine/market.ts`   | GBM price model; OHLC bars; configurable shock events                                                                                                                                                                            |
+| `engine/agent.ts`    | 6-signal genome (momentum, mean reversion, volatility, relative strength, volume proxy, peer copying); `selectAndDecide` draws `volumeNoise` once for consistent stock selection and action evaluation; immutable `executeTrade` |
+| `engine/oracle.ts`   | PRNG-forked lookahead; delay jitter queue; noise gate delegates to `selectAndDecide` to match regular-agent behavior; style mimicry                                                                                              |
+| `engine/auditor.ts`  | Incremental suspicion scoring (only agents with new trades are rescored per tick); `makeAccusation` at round end                                                                                                                 |
+| `engine/genetics.ts` | Cull bottom quartile; uniform crossover via `pickFrom`; per-gene mutation via `maybeMutateNumber`; deterministic agent ID generation from PRNG                                                                                   |
+| `engine/gameLoop.ts` | `createGameState` / `tickGame` / `resolveRound` / `resolveGeneration`; phase FSM: `running → roundEnd → generationEnd → finished`; `tradeLog` and `portfolioHistory` append in-place within a round (O(1) per tick)              |
 
 **101 tests passing.** Determinism verified: fixed-seed runs produce identical output.
 
 ### Phase 2 — React Visualization ✅
 
-| Module | Description |
-|---|---|
-| `hooks/useSimulation.ts` | RAF loop; batches up to 50 ticks/frame; pauses at `roundEnd` for summary display; auto-resolves `generationEnd`; resets on config change |
-| `components/PriceChart.tsx` | Canvas multi-line chart of all stock close prices; dynamic legend spacing |
-| `components/PortfolioRace.tsx` | Canvas portfolio value per agent over time; oracle shown dashed |
-| `components/TradeFeed.tsx` | Color-coded scrolling trade log (most recent first); stable React keys |
-| `components/AuditorPanel.tsx` | Per-agent suspicion bars (predictive correlation, win rate, timing clustering, behavioral fingerprint) with composite indicator; accusation highlight after round end |
-| `components/SimControls.tsx` | Start/Pause/Reset, speed slider (1–200 t/s), agents/stocks/ticks config inputs |
-| `main.tsx` | 2-column dark-theme grid layout |
+| Module                         | Description                                                                                                                                                           |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hooks/useSimulation.ts`       | RAF loop; batches up to 50 ticks/frame; pauses at `roundEnd` for summary display; auto-resolves `generationEnd`; resets on config change                              |
+| `components/PriceChart.tsx`    | Canvas multi-line chart of all stock close prices; dynamic legend spacing                                                                                             |
+| `components/PortfolioRace.tsx` | Canvas portfolio value per agent over time; oracle shown dashed                                                                                                       |
+| `components/TradeFeed.tsx`     | Color-coded scrolling trade log (most recent first); stable React keys                                                                                                |
+| `components/AuditorPanel.tsx`  | Per-agent suspicion bars (predictive correlation, win rate, timing clustering, behavioral fingerprint) with composite indicator; accusation highlight after round end |
+| `components/SimControls.tsx`   | Start/Pause/Reset, speed slider (1–200 t/s), agents/stocks/ticks config inputs                                                                                        |
+| `main.tsx`                     | 2-column dark-theme grid layout                                                                                                                                       |
 
 ---
 
