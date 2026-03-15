@@ -12,6 +12,7 @@ const config: SimConfig = {
   shockFrequency: 999_999,
   mutationRate: 0.5,
   mutationMagnitude: 0.1,
+  roundsPerGeneration: 2,
 };
 
 function makeAgents(n: number) {
@@ -104,24 +105,40 @@ describe('evolveGeneration', () => {
   it('preserves population count', () => {
     const agents = makeAgents(8);
     const fitness = fitnessFromAgents(agents, config);
-    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1), 1);
     expect(newAgents.length).toBe(8);
   });
 
   it('exactly one oracle in new generation', () => {
     const agents = makeAgents(6);
     const fitness = fitnessFromAgents(agents, config);
-    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1), 1);
     expect(newAgents.filter((a) => a.isOracle).length).toBe(1);
+  });
+
+  it('returns non-empty replacedIds', () => {
+    const agents = makeAgents(8);
+    const fitness = fitnessFromAgents(agents, config);
+    const [, replacedIds] = evolveGeneration(agents, config, fitness, createPrng(1), 1);
+    expect(replacedIds.length).toBeGreaterThan(0);
+    expect(replacedIds.length).toBeLessThan(agents.length);
+  });
+
+  it('new agents carry the correct epoch in their ID', () => {
+    const agents = makeAgents(4);
+    const fitness = fitnessFromAgents(agents, config);
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1), 7);
+    const newlyBorn = newAgents.filter((a) => !agents.some((orig) => orig.id === a.id));
+    expect(newlyBorn.every((a) => a.id.startsWith('agent_gen7_'))).toBe(true);
   });
 
   it('is deterministic', () => {
     const agents = makeAgents(4);
     const fitness = fitnessFromAgents(agents, config);
-    const [a] = evolveGeneration(agents, config, fitness, createPrng(42));
-    const [b] = evolveGeneration(agents, config, fitness, createPrng(42));
+    const [a, idsA] = evolveGeneration(agents, config, fitness, createPrng(42), 1);
+    const [b, idsB] = evolveGeneration(agents, config, fitness, createPrng(42), 1);
     expect(a.map((x) => x.genome)).toEqual(b.map((x) => x.genome));
-    // IDs are now PRNG-derived so they should also match
     expect(a.map((x) => x.id)).toEqual(b.map((x) => x.id));
+    expect(idsA).toEqual(idsB);
   });
 });

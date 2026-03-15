@@ -12,7 +12,7 @@ The simulation runs a genetic algorithm across trading agents, allowing profitab
 
 - **Simulated Market:** Live stock price generation via geometric Brownian motion with configurable volatility, drift, and shock events.
 - **Genetic Algorithm:** Strategy evolution through natural selection, mutation, and uniform crossover across generations.
-- **Asymmetric Information:** A hidden Oracle agent balances profit-seeking against concealment via noise injection, style mimicry, and delay jitter.
+- **Asymmetric Information:** A hidden Oracle agent balances profit-seeking against concealment via noise injection and delay jitter.
 - **Auditor Analytics:** Real-time behavioral forensics (predictive correlation, win rate, timing clustering, behavioral fingerprint) to detect insider trading.
 - **Client-Side Engine:** Fully deterministic tick-based simulation engine running in the browser; reproducible from a seed.
 
@@ -41,7 +41,7 @@ npm run build      # Production build
 | `engine/prng.ts`     | Xoshiro128+ seeded PRNG; immutable state threading; `nextFloat`, `nextInt`                                                                                                                                                       |
 | `engine/market.ts`   | GBM price model; OHLC bars; configurable shock events                                                                                                                                                                            |
 | `engine/agent.ts`    | 6-signal genome (momentum, mean reversion, volatility, relative strength, volume proxy, peer copying); `selectAndDecide` draws `volumeNoise` once for consistent stock selection and action evaluation; immutable `executeTrade` |
-| `engine/oracle.ts`   | PRNG-forked lookahead; delay jitter queue; noise gate delegates to `selectAndDecide` to match regular-agent behavior; style mimicry                                                                                              |
+| `engine/oracle.ts`   | PRNG-forked lookahead; delay jitter queue; noise gate delegates to `selectAndDecide` to match regular-agent behavior                                                                                                             |
 | `engine/auditor.ts`  | Incremental suspicion scoring (only agents with new trades are rescored per tick); `makeAccusation` at round end                                                                                                                 |
 | `engine/genetics.ts` | Cull bottom quartile; uniform crossover via `pickFrom`; per-gene mutation via `maybeMutateNumber`; deterministic agent ID generation from PRNG                                                                                   |
 | `engine/gameLoop.ts` | `createGameState` / `tickGame` / `resolveRound` / `resolveGeneration`; phase FSM: `running → roundEnd → generationEnd → finished`; `tradeLog` and `portfolioHistory` append in-place within a round (O(1) per tick)              |

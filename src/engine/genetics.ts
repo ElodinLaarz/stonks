@@ -4,6 +4,14 @@ import { portfolioValue } from './agent';
 import type { Agent, AgentId, Genome, MarketState, SimConfig } from './types';
 
 const CROSSOVER_CHANCE = 0.5;
+const LOOKBACK_MUTATION_STEP = 4;
+const THRESHOLD_MIN = 0.001;
+const THRESHOLD_MAX = 1.0;
+const POSITION_SIZE_MIN = 0.01;
+const POSITION_SIZE_MAX = 1.0;
+const RISK_TOLERANCE_MIN = 0.0;
+const RISK_TOLERANCE_MAX = 1.0;
+const TOP_PERFORMER_RATIO = 0.5;
 
 function maybeMutateNumber(
   value: number,
@@ -55,30 +63,57 @@ export function mutateGenome(
   }
 
   let lookbackWindow: number;
-  // lookbackWindow uses a smaller step (4) rather than mutationMagnitude — handled inline
+  // lookbackWindow uses a smaller step (LOOKBACK_MUTATION_STEP) rather than mutationMagnitude — handled inline
   {
     let gate: number;
     [p, gate] = nextFloat(p);
     if (gate < config.mutationRate) {
       let delta: number;
       [p, delta] = nextFloat(p);
-      lookbackWindow = Math.max(1, Math.round(genome.lookbackWindow + (delta - 0.5) * 4));
+      lookbackWindow = Math.max(
+        1,
+        Math.round(genome.lookbackWindow + (delta - 0.5) * LOOKBACK_MUTATION_STEP),
+      );
     } else {
       lookbackWindow = genome.lookbackWindow;
     }
   }
 
   let buyThreshold: number;
-  [buyThreshold, p] = maybeMutateNumber(genome.buyThreshold, p, config, 0.001, 1);
+  [buyThreshold, p] = maybeMutateNumber(
+    genome.buyThreshold,
+    p,
+    config,
+    THRESHOLD_MIN,
+    THRESHOLD_MAX,
+  );
 
   let sellThreshold: number;
-  [sellThreshold, p] = maybeMutateNumber(genome.sellThreshold, p, config, 0.001, 1);
+  [sellThreshold, p] = maybeMutateNumber(
+    genome.sellThreshold,
+    p,
+    config,
+    THRESHOLD_MIN,
+    THRESHOLD_MAX,
+  );
 
   let positionSize: number;
-  [positionSize, p] = maybeMutateNumber(genome.positionSize, p, config, 0.01, 1);
+  [positionSize, p] = maybeMutateNumber(
+    genome.positionSize,
+    p,
+    config,
+    POSITION_SIZE_MIN,
+    POSITION_SIZE_MAX,
+  );
 
   let riskTolerance: number;
-  [riskTolerance, p] = maybeMutateNumber(genome.riskTolerance, p, config, 0, 1);
+  [riskTolerance, p] = maybeMutateNumber(
+    genome.riskTolerance,
+    p,
+    config,
+    RISK_TOLERANCE_MIN,
+    RISK_TOLERANCE_MAX,
+  );
 
   const newGenome: Genome = {
     signalWeights: newWeights,
@@ -131,60 +166,74 @@ export function crossoverGenomes(a: Genome, b: Genome, prng: PrngState): [Genome
   return [child, p];
 }
 
+/**
+ * Breeds a single child genome from the top performers via optional crossover + mutation.
+ * Returns the child genome, the primary parent (for field inheritance), and the new PRNG state.
+ */
+function breedChild(
+  topPerformers: readonly Agent[],
+  config: SimConfig,
+  prng: PrngState,
+): [Genome, Agent, PrngState] {
+  let p = prng;
+
+  let parentIdx: number;
+  [p, parentIdx] = nextInt(p, 0, topPerformers.length - 1);
+  const parent = topPerformers[parentIdx]!;
+
+  let childGenome: Genome;
+  let crossoverRoll: number;
+  [p, crossoverRoll] = nextFloat(p);
+
+  if (crossoverRoll < CROSSOVER_CHANCE && topPerformers.length >= 2) {
+    let otherIdx: number;
+    [p, otherIdx] = nextInt(p, 0, topPerformers.length - 1);
+    if (otherIdx === parentIdx) otherIdx = (otherIdx + 1) % topPerformers.length;
+    [childGenome, p] = crossoverGenomes(parent.genome, topPerformers[otherIdx]!.genome, p);
+  } else {
+    childGenome = parent.genome;
+  }
+
+  [childGenome, p] = mutateGenome(childGenome, config, p);
+  return [childGenome, parent, p];
+}
+
 export function evolveGeneration(
   agents: readonly Agent[],
   config: SimConfig,
   fitnessValues: ReadonlyMap<AgentId, number>,
   prng: PrngState,
-): [readonly Agent[], PrngState] {
+  agentEpoch: number,
+): [readonly Agent[], readonly AgentId[], PrngState] {
   let p = prng;
 
-  // Rank by pre-reset portfolio values captured at round end; fall back to 0 for unknown agents.
+  // Rank descending by fitness; fall back to 0 for unknown agents.
   const ranked = [...agents].sort(
     (a, b) => (fitnessValues.get(b.id) ?? 0) - (fitnessValues.get(a.id) ?? 0),
   );
 
   const n = ranked.length;
-  const cullCount = Math.floor(n / 4);
+  const cullCount = Math.max(1, Math.floor(n * config.replacementRate));
   const survivors = ranked.slice(0, n - cullCount);
+  const replacedIds = ranked.slice(n - cullCount).map((a) => a.id);
 
   // Fill culled slots with mutated/crossed copies of top performers
   const newAgents: Agent[] = [...survivors];
-  const topPerformers = ranked.slice(0, Math.max(1, Math.floor(n / 2)));
+  const topPerformers = ranked.slice(0, Math.max(1, Math.floor(n * TOP_PERFORMER_RATIO)));
 
+  let childIdx = 0;
   while (newAgents.length < n) {
-    // Pick a parent from top performers
-    let parentIdx: number;
-    [p, parentIdx] = nextInt(p, 0, topPerformers.length - 1);
-    const parent = topPerformers[parentIdx]!;
-
     let childGenome: Genome;
-    let crossoverRoll: number;
-    [p, crossoverRoll] = nextFloat(p);
-
-    if (crossoverRoll < CROSSOVER_CHANCE && topPerformers.length >= 2) {
-      // Crossover with a different parent
-      let otherIdx: number;
-      [p, otherIdx] = nextInt(p, 0, topPerformers.length - 1);
-      // Avoid same parent
-      if (otherIdx === parentIdx) otherIdx = (otherIdx + 1) % topPerformers.length;
-      [childGenome, p] = crossoverGenomes(parent.genome, topPerformers[otherIdx]!.genome, p);
-    } else {
-      childGenome = parent.genome;
-    }
-
-    [childGenome, p] = mutateGenome(childGenome, config, p);
-
-    let idSuffix: number;
-    [p, idSuffix] = nextInt(p, 0, 0xffffff);
-    const newId = `agent_gen_${newAgents.length}_${idSuffix.toString(16)}`;
+    let parentAgent: Agent;
+    [childGenome, parentAgent, p] = breedChild(topPerformers, config, p);
     newAgents.push({
-      ...parent,
-      id: newId,
+      ...parentAgent,
+      id: `agent_gen${agentEpoch}_${childIdx}`,
       genome: childGenome,
       portfolio: { cash: config.startingCapital, positions: new Map() },
       isOracle: false,
     });
+    childIdx++;
   }
 
   // Randomly reassign oracle role
@@ -192,5 +241,5 @@ export function evolveGeneration(
   [p, oracleIdx] = nextInt(p, 0, newAgents.length - 1);
   const finalAgents: Agent[] = newAgents.map((a, i) => ({ ...a, isOracle: i === oracleIdx }));
 
-  return [finalAgents, p];
+  return [finalAgents, replacedIds, p];
 }

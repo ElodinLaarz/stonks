@@ -38,7 +38,7 @@ describe('oracleDecideAction', () => {
   it('PRNG is only advanced for real oracle draws (not lookahead)', () => {
     // With noiseRate=0 and delayJitter=0, oracle uses lookahead only.
     // The real PRNG should NOT advance (no noise or delay draws).
-    const oracle = makeOracle({ noiseRate: 0, delayJitter: 0, styleTarget: null });
+    const oracle = makeOracle({ noiseRate: 0, delayJitter: 0 });
     const market = createMarket(config);
     const prng = createPrng(42);
     const [, , , returnedPrng] = oracleDecideAction(
