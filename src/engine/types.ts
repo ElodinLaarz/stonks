@@ -84,7 +84,6 @@ export interface Genome {
 export interface ConcealmentGenome {
   readonly noiseRate: number;
   readonly aggressionCap: number;
-  readonly styleTarget: AgentId | null;
   readonly delayJitter: number;
 }
 

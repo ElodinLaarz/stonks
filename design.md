@@ -41,7 +41,6 @@ The Oracle's genome includes a concealment layer on top of the standard strategy
 
 - **Noise injection rate** — how often to ignore future knowledge and trade randomly
 - **Aggression cap** — maximum position size on future-informed trades
-- **Style mirroring** — whether to blend trade patterns with a target agent
 - **Delay jitter** — random delay (in ticks) before acting on future info to obscure timing
 
 ### The Auditor
@@ -92,7 +91,6 @@ The Oracle's genome extends the standard genome with additional concealment para
 | ---------------- | ----------------------------------------------------------------------------------------- |
 | `noise_rate`     | Probability of ignoring future knowledge on any given tick and trading from signals alone |
 | `aggression_cap` | Maximum fraction of capital deployed on a future-informed trade                           |
-| `style_target`   | Whether to mirror another agent's behavioral fingerprint to blend in                      |
 | `delay_jitter`   | Random delay (in ticks) before acting on future info to obscure timing                    |
 
 ---
@@ -118,7 +116,6 @@ Given enough generations, the following patterns are expected to emerge:
 
 - Momentum strategies dominate early due to natural profitability in trending markets
 - Some agents accidentally achieve high win rates through luck, providing cover for the Oracle
-- The Oracle's optimal concealment becomes mimicking the most successful regular agent
 - Agents that track the Oracle's behavior may passively benefit by trading in the same direction
 - An evolved Auditor would learn to weight timing correlation over raw win rate
 

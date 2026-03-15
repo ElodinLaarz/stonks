@@ -25,7 +25,6 @@ export const DEFAULT_GENOME: Genome = {
 export const DEFAULT_CONCEALMENT_GENOME: ConcealmentGenome = {
   noiseRate: 0.3,
   aggressionCap: 0.5,
-  styleTarget: null,
   delayJitter: 2,
 };
 
