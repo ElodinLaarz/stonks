@@ -149,7 +149,6 @@ export interface AgentTradeHistory {
 
 export interface AuditorState {
   readonly scores: ReadonlyMap<AgentId, SuspicionScores>;
-  readonly accusation: AgentId | null;
   readonly tradeHistories: ReadonlyMap<AgentId, AgentTradeHistory>;
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createGameState, tickGame, resolveRound, resolveGeneration } from '../engine/gameLoop';
 import { makeAccusation } from '../engine/auditor';
 import { portfolioValue } from '../engine/agent';
-import type { AgentId, GameState, SimConfig } from '../engine';
+import type { AgentId, GameState, RoundResult, SimConfig } from '../engine';
 
 export interface AgentRankEntry {
   agentId: AgentId;
@@ -35,6 +35,11 @@ export interface SimulationControls {
   continueRound: () => void;
 }
 
+interface RoundEndData {
+  summary: RoundSummaryData;
+  nextState: GameState;
+}
+
 export function useSimulation(config: SimConfig, speed: number = 10): SimulationControls {
   const [snapshot, setSnapshot] = useState<GameState>(() => createGameState(config));
   const stateRef = useRef<GameState>(snapshot);
@@ -46,12 +51,36 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
   configRef.current = config;
   const speedRef = useRef(speed);
   speedRef.current = speed;
+  const [roundEndData, setRoundEndData] = useState<RoundEndData | null>(null);
+  const roundEndDataRef = useRef<RoundEndData | null>(null);
 
   const advanceState = useCallback((state: GameState): GameState => {
     // roundEnd is NOT auto-resolved here — the loop stops so the UI can show a round summary.
     // generationEnd is auto-resolved (GA runs silently; the generation log is future work).
     if (state.phase === 'generationEnd') return resolveGeneration(state);
     return tickGame(state);
+  }, []);
+
+  const buildRoundEndData = useCallback((state: GameState): RoundEndData => {
+    const [nextState, result]: [GameState, RoundResult] = resolveRound(state);
+    const rankedAgents = state.agents
+      .map((a, originalIndex) => ({
+        agentId: a.id,
+        value: portfolioValue(a, state.market),
+        originalIndex,
+        isOracle: a.isOracle,
+      }))
+      .sort((a, b) => b.value - a.value);
+    const summary: RoundSummaryData = {
+      round: result.round,
+      generation: result.generation,
+      accusedId: result.auditorAccusation,
+      oracleId: result.oracleId,
+      oracleCaught: result.auditorCorrect,
+      rankedAgents,
+      isLastRound: result.round + 1 >= state.config.roundsPerGeneration,
+    };
+    return { summary, nextState };
   }, []);
 
   const pause = useCallback(() => {
@@ -83,6 +112,11 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
           s = advanceState(s);
         }
         stateRef.current = s;
+        if (s.phase === 'roundEnd' && roundEndDataRef.current === null) {
+          const data = buildRoundEndData(s);
+          roundEndDataRef.current = data;
+          setRoundEndData(data);
+        }
         setSnapshot(s);
       }
 
@@ -95,7 +129,7 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
         setIsRunning(false);
       }
     },
-    [advanceState],
+    [advanceState, buildRoundEndData],
   );
 
   const start = useCallback(() => {
@@ -110,6 +144,8 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
 
   const reset = useCallback(() => {
     pause();
+    roundEndDataRef.current = null;
+    setRoundEndData(null);
     const fresh = createGameState(configRef.current);
     stateRef.current = fresh;
     setSnapshot(fresh);
@@ -117,8 +153,12 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
 
   const continueRound = useCallback(() => {
     if (stateRef.current.phase !== 'roundEnd') return;
-    // Resolve the round; auto-resolve generationEnd so the GA runs without a second pause
-    const [resolved] = resolveRound(stateRef.current);
+    // Use the pre-resolved next state if available (avoids re-running resolveRound).
+    const data = roundEndDataRef.current;
+    const resolved = data ? data.nextState : resolveRound(stateRef.current)[0];
+    roundEndDataRef.current = null;
+    setRoundEndData(null);
+    // Auto-resolve generationEnd so the GA runs without a second pause.
     const next = resolved.phase === 'generationEnd' ? resolveGeneration(resolved) : resolved;
     stateRef.current = next;
     setSnapshot(next);
@@ -136,6 +176,8 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     if (prevConfigRef.current !== config) {
       prevConfigRef.current = config;
       pause();
+      roundEndDataRef.current = null;
+      setRoundEndData(null);
       const fresh = createGameState(config);
       stateRef.current = fresh;
       setSnapshot(fresh);
@@ -148,29 +190,8 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
 
   const roundSummary = useMemo((): RoundSummaryData | null => {
     if (snapshot.phase !== 'roundEnd') return null;
-    const accusedId = makeAccusation(snapshot.auditor);
-    const oracle = snapshot.agents.find((a) => a.isOracle);
-    const oracleId = oracle?.id ?? null;
-    const oracleCaught = accusedId !== null && accusedId === oracleId;
-    const rankedAgents = snapshot.agents
-      .map((a, originalIndex) => ({
-        agentId: a.id,
-        value: portfolioValue(a, snapshot.market),
-        originalIndex,
-        isOracle: a.isOracle,
-      }))
-      .sort((a, b) => b.value - a.value);
-    const isLastRound = snapshot.round + 1 >= snapshot.config.roundsPerGeneration;
-    return {
-      round: snapshot.round,
-      generation: snapshot.generation,
-      accusedId,
-      oracleId,
-      oracleCaught,
-      rankedAgents,
-      isLastRound,
-    };
-  }, [snapshot]);
+    return roundEndData?.summary ?? null;
+  }, [snapshot.phase, roundEndData]);
 
   return {
     state: snapshot,

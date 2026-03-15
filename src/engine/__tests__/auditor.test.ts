@@ -24,9 +24,9 @@ describe('createAuditorState', () => {
     }
   });
 
-  it('accusation starts null', () => {
+  it('makeAccusation returns null when all composites are zero', () => {
     const state = createAuditorState(agentIds);
-    expect(state.accusation).toBeNull();
+    expect(makeAccusation(state)).toBeNull();
   });
 });
 

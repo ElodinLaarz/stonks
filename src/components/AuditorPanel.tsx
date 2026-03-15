@@ -1,18 +1,11 @@
 import type { AgentId, AuditorState, Agent } from '../engine';
-import { AGENT_COLORS } from './agentColors';
+import { AGENT_COLORS, THEME } from './agentColors';
 
 interface Props {
   auditorState: AuditorState;
   agents: readonly Agent[];
   currentAccusation: AgentId | null;
 }
-
-const BAR_COLORS = {
-  predictiveCorrelation: '#4fc3f7',
-  winRate: '#81c784',
-  timingClustering: '#ffb74d',
-  behavioralFingerprint: '#f06292',
-};
 
 export function AuditorPanel({ auditorState, agents, currentAccusation }: Props) {
   return (
@@ -55,14 +48,14 @@ export function AuditorPanel({ auditorState, agents, currentAccusation }: Props)
             </div>
             {scores !== undefined && (
               <div style={{ display: 'flex', gap: 8, marginTop: 3, color: '#666', fontSize: 10 }}>
-                <span style={{ color: BAR_COLORS.predictiveCorrelation }}>
+                <span style={{ color: THEME.info }}>
                   pred:{scores.predictiveCorrelation.toFixed(2)}
                 </span>
-                <span style={{ color: BAR_COLORS.winRate }}>win:{scores.winRate.toFixed(2)}</span>
-                <span style={{ color: BAR_COLORS.timingClustering }}>
+                <span style={{ color: THEME.success }}>win:{scores.winRate.toFixed(2)}</span>
+                <span style={{ color: THEME.warning }}>
                   time:{scores.timingClustering.toFixed(2)}
                 </span>
-                <span style={{ color: BAR_COLORS.behavioralFingerprint }}>
+                <span style={{ color: THEME.danger }}>
                   behav:{scores.behavioralFingerprint.toFixed(2)}
                 </span>
               </div>

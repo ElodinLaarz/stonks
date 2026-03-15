@@ -203,8 +203,6 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     resetPortfolioHistory.set(agent.id, [state.config.startingCapital]);
   }
 
-  // Start next round with a fresh auditor, but carry forward the accusation so the UI
-  // can display who was accused at round end.
   const freshAuditor = createAuditorState(resetAgents.map((a) => a.id));
 
   const newState: GameState = {
@@ -214,7 +212,7 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     market: createMarket(state.config),
     agents: resetAgents,
     oracleStates: resetOracleStates,
-    auditor: { ...freshAuditor, accusation },
+    auditor: freshAuditor,
     tradeLog: [],
     portfolioHistory: resetPortfolioHistory,
     roundEndPortfolioValues,

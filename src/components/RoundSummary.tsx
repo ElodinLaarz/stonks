@@ -1,5 +1,5 @@
 import type { RoundSummaryData } from '../hooks/useSimulation';
-import { AGENT_COLORS } from './agentColors';
+import { AGENT_COLORS, THEME } from './agentColors';
 
 interface Props {
   summary: RoundSummaryData;
@@ -29,16 +29,16 @@ export function RoundSummary({ summary, onContinue }: Props) {
           marginBottom: 10,
         }}
       >
-        <span style={{ color: '#4fc3f7', fontWeight: 'bold', fontSize: 13, letterSpacing: 1 }}>
+        <span style={{ color: THEME.info, fontWeight: 'bold', fontSize: 13, letterSpacing: 1 }}>
           ROUND {round} COMPLETE
           {isLastRound && (
-            <span style={{ color: '#ffb74d', marginLeft: 8 }}>— GEN {generation} END</span>
+            <span style={{ color: THEME.warning, marginLeft: 8 }}>— GEN {generation} END</span>
           )}
         </span>
         <button
           onClick={onContinue}
           style={{
-            background: '#4fc3f7',
+            background: THEME.info,
             color: '#0d0d1a',
             border: 'none',
             borderRadius: 4,
@@ -86,7 +86,7 @@ export function RoundSummary({ summary, onContinue }: Props) {
                     {isOracle && ' ★'}
                   </span>
                   {accusedId === agentId && (
-                    <span style={{ color: '#f06292', marginLeft: 4 }}>[accused]</span>
+                    <span style={{ color: THEME.danger, marginLeft: 4 }}>[accused]</span>
                   )}
                 </span>
                 <span style={{ color: '#ddd' }}>${value.toFixed(0)}</span>
@@ -111,23 +111,23 @@ export function RoundSummary({ summary, onContinue }: Props) {
           <div style={{ fontSize: 11, lineHeight: '1.8' }}>
             <div>
               <span style={{ color: '#555' }}>Oracle: </span>
-              <span style={{ color: '#ffb74d' }}>{oracleId?.slice(0, 12) ?? '—'}</span>
+              <span style={{ color: THEME.warning }}>{oracleId?.slice(0, 12) ?? '—'}</span>
             </div>
             <div>
               <span style={{ color: '#555' }}>Accused: </span>
-              <span style={{ color: accusedId ? '#f06292' : '#555' }}>
+              <span style={{ color: accusedId ? THEME.danger : '#555' }}>
                 {accusedId?.slice(0, 12) ?? 'nobody'}
               </span>
             </div>
             <div style={{ marginTop: 4 }}>
               {oracleCaught ? (
-                <span style={{ color: '#81c784', fontWeight: 'bold' }}>✓ ORACLE CAUGHT</span>
+                <span style={{ color: THEME.success, fontWeight: 'bold' }}>✓ ORACLE CAUGHT</span>
               ) : (
-                <span style={{ color: '#f06292', fontWeight: 'bold' }}>✗ ORACLE ESCAPED</span>
+                <span style={{ color: THEME.danger, fontWeight: 'bold' }}>✗ ORACLE ESCAPED</span>
               )}
             </div>
             {isLastRound && (
-              <div style={{ marginTop: 6, color: '#ffb74d', fontSize: 10 }}>
+              <div style={{ marginTop: 6, color: THEME.warning, fontSize: 10 }}>
                 Genetic algorithm will evolve agents on Continue.
               </div>
             )}

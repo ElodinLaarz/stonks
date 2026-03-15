@@ -42,7 +42,7 @@ export function createAuditorState(agentIds: readonly AgentId[]): AuditorState {
     scores.set(id, ZERO_SCORES);
     tradeHistories.set(id, emptyHistory());
   }
-  return { scores, accusation: null, tradeHistories };
+  return { scores, tradeHistories };
 }
 
 export function updateSuspicion(
