@@ -11,6 +11,7 @@ const config: SimConfig = {
   shockFrequency: 999_999,
   roundsPerGeneration: 2,
   maxGenerations: 3,
+  replacementRate: 0.34, // ceil(3 * 0.34) = 2, clamped to 1 (n-1=2 means at most 2, at least 1)
 };
 
 describe('createGameState', () => {
@@ -21,9 +22,21 @@ describe('createGameState', () => {
     expect(state.generation).toBe(0);
   });
 
+  it('initializes agentEpoch at 0', () => {
+    const state = createGameState(config);
+    expect(state.agentEpoch).toBe(0);
+  });
+
   it('creates correct number of agents', () => {
     const state = createGameState(config);
     expect(state.agents.length).toBe(config.numAgents);
+  });
+
+  it('agent IDs use gen0 naming', () => {
+    const state = createGameState(config);
+    for (const agent of state.agents) {
+      expect(agent.id).toMatch(/^agent_gen0_\d+$/);
+    }
   });
 
   it('exactly one oracle agent', () => {
@@ -105,6 +118,13 @@ describe('resolveRound', () => {
     expect(newState.tick).toBe(0);
   });
 
+  it('increments agentEpoch', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    const [newState] = resolveRound(state);
+    expect(newState.agentEpoch).toBe(1);
+  });
+
   it('transitions to generationEnd after roundsPerGeneration rounds', () => {
     let state = createGameState(config);
     for (let r = 0; r < config.roundsPerGeneration; r++) {
@@ -123,6 +143,27 @@ describe('resolveRound', () => {
     expect(result.round).toBe(0);
     expect(typeof result.oracleId).toBe('string');
     expect(result.portfolioRanking.length).toBeGreaterThan(0);
+  });
+
+  it('replacedAgentIds has at least 1 and at most n-1 entries', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    const [, result] = resolveRound(state);
+    expect(result.replacedAgentIds.length).toBeGreaterThanOrEqual(1);
+    expect(result.replacedAgentIds.length).toBeLessThanOrEqual(config.numAgents - 1);
+  });
+
+  it('new agents born in the next epoch carry the correct ID prefix', () => {
+    let state = createGameState(config);
+    for (let i = 0; i < config.numTicks; i++) state = tickGame(state);
+    const [newState, result] = resolveRound(state);
+    // All agents born in epoch 1 should have agent_gen1_ prefix
+    const freshAgents = newState.agents.filter(
+      (a) =>
+        result.replacedAgentIds.includes(a.id) === false &&
+        !state.agents.some((old) => old.id === a.id),
+    );
+    expect(freshAgents.every((a) => a.id.startsWith('agent_gen1_'))).toBe(true);
   });
 
   it('next state has exactly one oracle after resolveRound', () => {
@@ -186,6 +227,13 @@ describe('resolveGeneration', () => {
     const newState = resolveGeneration(genEndState);
     expect(newState.round).toBe(0);
     expect(newState.tick).toBe(0);
+  });
+
+  it('increments agentEpoch', () => {
+    const genEndState = runToGenerationEnd();
+    const epochBefore = genEndState.agentEpoch;
+    const newState = resolveGeneration(genEndState);
+    expect(newState.agentEpoch).toBe(epochBefore + 1);
   });
 
   it('transitions to finished after maxGenerations', () => {

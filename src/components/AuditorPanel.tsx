@@ -9,7 +9,7 @@ interface Props {
 
 export function AuditorPanel({ auditorState, agents, currentAccusation }: Props) {
   return (
-    <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
+    <div style={{ fontFamily: 'monospace', fontSize: 11, maxHeight: 500, overflowY: 'auto' }}>
       {agents.map((agent, ai) => {
         const scores = auditorState.scores.get(agent.id);
         const isAccused = currentAccusation === agent.id;

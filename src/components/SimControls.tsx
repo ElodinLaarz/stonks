@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { SimConfig } from '../engine';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   tick: number;
   round: number;
   generation: number;
+  autoContinue: boolean;
+  onAutoContinueChange: (v: boolean) => void;
 }
 
 const PHASE_COLOR: Record<string, string> = {
@@ -55,13 +57,37 @@ export function SimControls({
   tick,
   round,
   generation,
+  autoContinue,
+  onAutoContinueChange,
 }: Props) {
+  // Local string state lets the user type freely (including clearing a field mid-edit).
+  // We propagate to onConfigChange only when the value is valid, and revert to the last
+  // known-good config value on blur if what was typed is still invalid.
+  const [agentsStr, setAgentsStr] = useState(String(config.numAgents));
+  const [stocksStr, setStocksStr] = useState(String(config.numStocks));
+  const [ticksStr, setTicksStr] = useState(String(config.numTicks));
+  const [cullStr, setCullStr] = useState(String(Math.round(config.replacementRate * 100)));
+
+  // Sync display when config changes externally (e.g. Reset button).
+  useEffect(() => {
+    setAgentsStr(String(config.numAgents));
+  }, [config.numAgents]);
+  useEffect(() => {
+    setStocksStr(String(config.numStocks));
+  }, [config.numStocks]);
+  useEffect(() => {
+    setTicksStr(String(config.numTicks));
+  }, [config.numTicks]);
+  useEffect(() => {
+    setCullStr(String(Math.round(config.replacementRate * 100)));
+  }, [config.replacementRate]);
+
   const atRoundEnd = phase === 'roundEnd';
   return (
     <div
       style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: '8px 0' }}
     >
-      {atRoundEnd ? (
+      {atRoundEnd && !autoContinue ? (
         <button style={{ ...BTN, background: '#4fc3f7', color: '#111' }} onClick={continueRound}>
           Continue →
         </button>
@@ -76,6 +102,18 @@ export function SimControls({
       )}
       <button style={{ ...BTN, background: '#444', color: '#eee' }} onClick={reset}>
         Reset
+      </button>
+      <button
+        style={{
+          ...BTN,
+          background: autoContinue ? '#7c4dff' : '#333',
+          color: autoContinue ? '#fff' : '#aaa',
+          border: '1px solid #555',
+        }}
+        onClick={() => onAutoContinueChange(!autoContinue)}
+        title="When enabled, rounds advance automatically without pausing"
+      >
+        {autoContinue ? 'No-Pause ●' : 'No-Pause ○'}
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -114,29 +152,59 @@ export function SimControls({
         <input
           type="number"
           min={2}
-          max={10}
-          value={config.numAgents}
+          max={100}
+          value={agentsStr}
           style={{ ...INPUT_BASE, width: 50 }}
-          onChange={(e) => onConfigChange({ numAgents: Number(e.target.value) })}
+          onChange={(e) => {
+            setAgentsStr(e.target.value);
+            const v = Number(e.target.value);
+            if (v >= 2 && v <= 100) onConfigChange({ numAgents: v });
+          }}
+          onBlur={() => setAgentsStr(String(config.numAgents))}
         />
         <label style={{ color: '#888', fontSize: 12 }}>Stocks</label>
         <input
           type="number"
           min={1}
-          max={10}
-          value={config.numStocks}
+          max={100}
+          value={stocksStr}
           style={{ ...INPUT_BASE, width: 50 }}
-          onChange={(e) => onConfigChange({ numStocks: Number(e.target.value) })}
+          onChange={(e) => {
+            setStocksStr(e.target.value);
+            const v = Number(e.target.value);
+            if (v >= 1 && v <= 100) onConfigChange({ numStocks: v });
+          }}
+          onBlur={() => setStocksStr(String(config.numStocks))}
         />
         <label style={{ color: '#888', fontSize: 12 }}>Ticks/Round</label>
         <input
           type="number"
           min={10}
-          max={500}
+          max={10000}
           step={10}
-          value={config.numTicks}
-          style={{ ...INPUT_BASE, width: 60 }}
-          onChange={(e) => onConfigChange({ numTicks: Number(e.target.value) })}
+          value={ticksStr}
+          style={{ ...INPUT_BASE, width: 70 }}
+          onChange={(e) => {
+            setTicksStr(e.target.value);
+            const v = Number(e.target.value);
+            if (v >= 10 && v <= 10000) onConfigChange({ numTicks: v });
+          }}
+          onBlur={() => setTicksStr(String(config.numTicks))}
+        />
+        <label style={{ color: '#888', fontSize: 12 }}>Cull%</label>
+        <input
+          type="number"
+          min={1}
+          max={99}
+          step={1}
+          value={cullStr}
+          style={{ ...INPUT_BASE, width: 50 }}
+          onChange={(e) => {
+            setCullStr(e.target.value);
+            const v = Number(e.target.value);
+            if (v >= 1 && v <= 99) onConfigChange({ replacementRate: v / 100 });
+          }}
+          onBlur={() => setCullStr(String(Math.round(config.replacementRate * 100)))}
         />
       </div>
     </div>

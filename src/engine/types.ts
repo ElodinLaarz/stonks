@@ -57,6 +57,11 @@ export interface SimConfig {
   mutationRate: number;
   mutationMagnitude: number;
   maxGenerations: number;
+  /**
+   * Fraction of agents replaced at the end of each round.
+   * Clamped to [0.01, 0.99]; actual count = ceil(n * rate), bounded to [1, n-1].
+   */
+  replacementRate: number;
 }
 
 export const DEFAULT_SIM_CONFIG: SimConfig = {
@@ -72,6 +77,7 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
   mutationRate: 0.1,
   mutationMagnitude: 0.05,
   maxGenerations: 10,
+  replacementRate: 0.25,
 };
 
 export type TradeAction = 'buy' | 'sell' | 'hold';
@@ -156,6 +162,9 @@ export interface GameState {
   readonly tick: Tick;
   readonly round: number;
   readonly generation: number;
+  /** Monotonically increasing counter; increments every time agents are replaced.
+   *  Used to derive new agent IDs: agent_gen{agentEpoch}_{i}. */
+  readonly agentEpoch: number;
   readonly market: MarketState;
   readonly agents: readonly Agent[];
   readonly oracleStates: ReadonlyMap<AgentId, OracleState>;
@@ -177,4 +186,6 @@ export interface RoundResult {
   readonly auditorCorrect: boolean;
   readonly portfolioRanking: readonly AgentId[];
   readonly oracleWon: boolean;
+  /** IDs of agents that were culled at the end of this round. */
+  readonly replacedAgentIds: readonly AgentId[];
 }

@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { createPrng } from '../prng';
 import { createMarket } from '../market';
 import { createAgent, portfolioValue, DEFAULT_GENOME, DEFAULT_CONCEALMENT_GENOME } from '../agent';
-import { rankAgents, mutateGenome, crossoverGenomes, evolveGeneration } from '../genetics';
+import {
+  rankAgents,
+  mutateGenome,
+  crossoverGenomes,
+  evolveGeneration,
+  replaceBottomAgents,
+} from '../genetics';
 import { DEFAULT_SIM_CONFIG } from '../types';
 import type { Agent, SimConfig } from '../types';
 
@@ -104,24 +110,100 @@ describe('evolveGeneration', () => {
   it('preserves population count', () => {
     const agents = makeAgents(8);
     const fitness = fitnessFromAgents(agents, config);
-    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1), 1);
     expect(newAgents.length).toBe(8);
   });
 
   it('exactly one oracle in new generation', () => {
     const agents = makeAgents(6);
     const fitness = fitnessFromAgents(agents, config);
-    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1));
+    const [newAgents] = evolveGeneration(agents, config, fitness, createPrng(1), 1);
     expect(newAgents.filter((a) => a.isOracle).length).toBe(1);
   });
 
   it('is deterministic', () => {
     const agents = makeAgents(4);
     const fitness = fitnessFromAgents(agents, config);
-    const [a] = evolveGeneration(agents, config, fitness, createPrng(42));
-    const [b] = evolveGeneration(agents, config, fitness, createPrng(42));
+    const [a] = evolveGeneration(agents, config, fitness, createPrng(42), 1);
+    const [b] = evolveGeneration(agents, config, fitness, createPrng(42), 1);
     expect(a.map((x) => x.genome)).toEqual(b.map((x) => x.genome));
-    // IDs are now PRNG-derived so they should also match
     expect(a.map((x) => x.id)).toEqual(b.map((x) => x.id));
+  });
+});
+
+describe('replaceBottomAgents', () => {
+  it('preserves population count', () => {
+    const agents = makeAgents(6);
+    const fitness = fitnessFromAgents(agents, config);
+    const [newAgents] = replaceBottomAgents(agents, config, fitness, createPrng(1), 1);
+    expect(newAgents.length).toBe(6);
+  });
+
+  it('replaces at least one and keeps at least one', () => {
+    // Even with extreme rates, floor/ceil guarantees [1, n-1]
+    for (const rate of [0.01, 0.5, 0.99]) {
+      const agents = makeAgents(4);
+      const fitness = fitnessFromAgents(agents, config);
+      const [newAgents, replacedIds] = replaceBottomAgents(
+        agents,
+        { ...config, replacementRate: rate },
+        fitness,
+        createPrng(1),
+        1,
+      );
+      expect(replacedIds.length).toBeGreaterThanOrEqual(1);
+      expect(newAgents.filter((a) => !replacedIds.includes(a.id)).length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('new agents carry the correct epoch in their ID', () => {
+    const agents = makeAgents(4);
+    const fitness = fitnessFromAgents(agents, config);
+    const [newAgents] = replaceBottomAgents(agents, config, fitness, createPrng(1), 7);
+    // The replaced slots should be filled by agents whose IDs reference epoch 7
+    const newlyBorn = newAgents.filter((a) => !agents.some((orig) => orig.id === a.id));
+    expect(newlyBorn.every((a) => a.id.startsWith('agent_gen7_'))).toBe(true);
+  });
+
+  it('is deterministic', () => {
+    const agents = makeAgents(4);
+    const fitness = fitnessFromAgents(agents, config);
+    const [a, idsA] = replaceBottomAgents(agents, config, fitness, createPrng(99), 2);
+    const [b, idsB] = replaceBottomAgents(agents, config, fitness, createPrng(99), 2);
+    expect(idsA).toEqual(idsB);
+    expect(a.map((x) => x.id)).toEqual(b.map((x) => x.id));
+  });
+
+  it('force-culls the specified agent even if they would have survived by fitness', () => {
+    const agents = makeAgents(4);
+    const fitness = fitnessFromAgents(agents, config);
+    // a3 has the highest cash (10_000 + 3*1000) — would normally survive
+    const topAgent = agents[agents.length - 1]!;
+    const [, replacedIds] = replaceBottomAgents(
+      agents,
+      { ...config, replacementRate: 0.25 }, // only 1 of 4 replaced normally
+      fitness,
+      createPrng(1),
+      1,
+      topAgent.id,
+    );
+    expect(replacedIds).toContain(topAgent.id);
+  });
+
+  it('force-cull does not push replacements past n-1 when already at the cap', () => {
+    // replacementRate=0.99 on 4 agents → numToReplace = min(ceil(4*0.99)=4, 4-1=3) = 3
+    const agents = makeAgents(4);
+    const fitness = fitnessFromAgents(agents, config);
+    const topAgent = agents[agents.length - 1]!;
+    const [newAgents, replacedIds] = replaceBottomAgents(
+      agents,
+      { ...config, replacementRate: 0.99 },
+      fitness,
+      createPrng(1),
+      1,
+      topAgent.id, // already in replaced set, or cap prevents adding
+    );
+    expect(replacedIds.length).toBeLessThanOrEqual(agents.length - 1);
+    expect(newAgents.length).toBe(agents.length);
   });
 });

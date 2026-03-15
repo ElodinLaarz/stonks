@@ -131,11 +131,99 @@ export function crossoverGenomes(a: Genome, b: Genome, prng: PrngState): [Genome
   return [child, p];
 }
 
+/**
+ * Breeds a single child agent from the top performers via optional crossover + mutation.
+ * Returns the child genome and the new PRNG state.
+ */
+function breedChild(
+  topPerformers: readonly Agent[],
+  config: SimConfig,
+  prng: PrngState,
+): [Genome, PrngState] {
+  let p = prng;
+
+  let parentIdx: number;
+  [p, parentIdx] = nextInt(p, 0, topPerformers.length - 1);
+  const parent = topPerformers[parentIdx]!;
+
+  let childGenome: Genome;
+  let crossoverRoll: number;
+  [p, crossoverRoll] = nextFloat(p);
+
+  if (crossoverRoll < CROSSOVER_CHANCE && topPerformers.length >= 2) {
+    let otherIdx: number;
+    [p, otherIdx] = nextInt(p, 0, topPerformers.length - 1);
+    if (otherIdx === parentIdx) otherIdx = (otherIdx + 1) % topPerformers.length;
+    [childGenome, p] = crossoverGenomes(parent.genome, topPerformers[otherIdx]!.genome, p);
+  } else {
+    childGenome = parent.genome;
+  }
+
+  [childGenome, p] = mutateGenome(childGenome, config, p);
+  return [childGenome, p];
+}
+
+/**
+ * Replaces the bottom `ceil(n * config.replacementRate)` agents (bounded to [1, n-1])
+ * with children bred from the top performers. New agents are named agent_gen{agentEpoch}_{i}.
+ *
+ * If `forceReplaceId` is provided (e.g. a caught oracle), that agent is always culled
+ * regardless of rank, as long as the total replacements remain below n-1.
+ *
+ * Returns [newAgents, replacedIds, newPrng].
+ */
+export function replaceBottomAgents(
+  agents: readonly Agent[],
+  config: SimConfig,
+  fitnessValues: ReadonlyMap<AgentId, number>,
+  prng: PrngState,
+  agentEpoch: number,
+  forceReplaceId: AgentId | null = null,
+): [readonly Agent[], readonly AgentId[], PrngState] {
+  let p = prng;
+  const n = agents.length;
+
+  const rate = Math.min(0.99, Math.max(0.01, config.replacementRate));
+  const numToReplace = Math.min(Math.max(Math.ceil(n * rate), 1), n - 1);
+
+  // Sort ascending by fitness so the worst are at the front
+  const sorted = [...agents].sort(
+    (a, b) => (fitnessValues.get(a.id) ?? 0) - (fitnessValues.get(b.id) ?? 0),
+  );
+
+  const replacedSet = new Set<AgentId>(sorted.slice(0, numToReplace).map((a) => a.id));
+  // Force-include the caught oracle if not already culled, without exceeding n-1 total.
+  if (forceReplaceId !== null && !replacedSet.has(forceReplaceId) && replacedSet.size < n - 1) {
+    replacedSet.add(forceReplaceId);
+  }
+  const replacedIds = [...replacedSet];
+  const survivors = sorted.filter((a) => !replacedSet.has(a.id));
+  const topPerformers = survivors; // best agents breed replacements (sorted ascending, survivors are the top)
+
+  const newAgents: Agent[] = [...survivors];
+  let childIdx = 0;
+  while (newAgents.length < n) {
+    let childGenome: Genome;
+    [childGenome, p] = breedChild(topPerformers, config, p);
+    newAgents.push({
+      ...topPerformers[0]!, // inherit concealment genome from a top performer
+      id: `agent_gen${agentEpoch}_${childIdx}`,
+      genome: childGenome,
+      portfolio: { cash: config.startingCapital, positions: new Map() },
+      isOracle: false,
+    });
+    childIdx++;
+  }
+
+  return [newAgents, replacedIds, p];
+}
+
 export function evolveGeneration(
   agents: readonly Agent[],
   config: SimConfig,
   fitnessValues: ReadonlyMap<AgentId, number>,
   prng: PrngState,
+  agentEpoch: number,
 ): [readonly Agent[], PrngState] {
   let p = prng;
 
@@ -152,39 +240,18 @@ export function evolveGeneration(
   const newAgents: Agent[] = [...survivors];
   const topPerformers = ranked.slice(0, Math.max(1, Math.floor(n / 2)));
 
+  let childIdx = 0;
   while (newAgents.length < n) {
-    // Pick a parent from top performers
-    let parentIdx: number;
-    [p, parentIdx] = nextInt(p, 0, topPerformers.length - 1);
-    const parent = topPerformers[parentIdx]!;
-
     let childGenome: Genome;
-    let crossoverRoll: number;
-    [p, crossoverRoll] = nextFloat(p);
-
-    if (crossoverRoll < CROSSOVER_CHANCE && topPerformers.length >= 2) {
-      // Crossover with a different parent
-      let otherIdx: number;
-      [p, otherIdx] = nextInt(p, 0, topPerformers.length - 1);
-      // Avoid same parent
-      if (otherIdx === parentIdx) otherIdx = (otherIdx + 1) % topPerformers.length;
-      [childGenome, p] = crossoverGenomes(parent.genome, topPerformers[otherIdx]!.genome, p);
-    } else {
-      childGenome = parent.genome;
-    }
-
-    [childGenome, p] = mutateGenome(childGenome, config, p);
-
-    let idSuffix: number;
-    [p, idSuffix] = nextInt(p, 0, 0xffffff);
-    const newId = `agent_gen_${newAgents.length}_${idSuffix.toString(16)}`;
+    [childGenome, p] = breedChild(topPerformers, config, p);
     newAgents.push({
-      ...parent,
-      id: newId,
+      ...topPerformers[0]!,
+      id: `agent_gen${agentEpoch}_${childIdx}`,
       genome: childGenome,
       portfolio: { cash: config.startingCapital, positions: new Map() },
       isOracle: false,
     });
+    childIdx++;
   }
 
   // Randomly reassign oracle role

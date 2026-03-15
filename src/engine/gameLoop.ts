@@ -11,7 +11,7 @@ import {
 } from './agent';
 import { oracleDecideAction } from './oracle';
 import { createAuditorState, makeAccusation, updateSuspicion } from './auditor';
-import { evolveGeneration, rankAgents } from './genetics';
+import { evolveGeneration, rankAgents, replaceBottomAgents } from './genetics';
 import type {
   Agent,
   AgentId,
@@ -37,7 +37,7 @@ export function createGameState(config: SimConfig): GameState {
   const portfolioHistory = new Map<AgentId, number[]>();
 
   for (let i = 0; i < config.numAgents; i++) {
-    const id = `agent_${i}`;
+    const id = `agent_gen0_${i}`;
     rawAgents.push(
       createAgent(id, DEFAULT_GENOME, DEFAULT_CONCEALMENT_GENOME, config.startingCapital, false),
     );
@@ -45,7 +45,7 @@ export function createGameState(config: SimConfig): GameState {
     portfolioHistory.set(id, [config.startingCapital]);
   }
 
-  // Randomly assign oracle so the auditor cannot learn to always accuse agent_0
+  // Randomly assign oracle so the auditor cannot learn to always accuse the first agent
   let oracleIdx: number;
   [prng, oracleIdx] = nextInt(prng, 0, config.numAgents - 1);
   const agents: Agent[] = rawAgents.map((a, i) => ({ ...a, isOracle: i === oracleIdx }));
@@ -55,6 +55,7 @@ export function createGameState(config: SimConfig): GameState {
     tick: 0,
     round: 0,
     generation: 0,
+    agentEpoch: 0,
     market,
     agents,
     oracleStates,
@@ -164,6 +165,25 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
 
   const oracleWon = !auditorCorrect && portfolioRanking[0] === oracleId;
 
+  // Capture fitness before resetting portfolios so replacement and the GA rank on actual perf.
+  const roundEndPortfolioValues = new Map<AgentId, number>(
+    state.agents.map((a) => [a.id, portfolioValue(a, state.market)]),
+  );
+
+  // Replace the bottom replacementRate% of agents with children from top performers.
+  const nextEpoch = state.agentEpoch + 1;
+  let roundPrng = state.prng;
+  let agentsAfterReplacement: readonly Agent[];
+  let replacedAgentIds: readonly AgentId[];
+  [agentsAfterReplacement, replacedAgentIds, roundPrng] = replaceBottomAgents(
+    state.agents,
+    state.config,
+    roundEndPortfolioValues,
+    roundPrng,
+    nextEpoch,
+    auditorCorrect ? oracleId : null,
+  );
+
   const result: RoundResult = {
     generation: state.generation,
     round: state.round,
@@ -172,25 +192,18 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     auditorCorrect,
     portfolioRanking,
     oracleWon,
+    replacedAgentIds,
   };
-
-  // Capture fitness before resetting portfolios so the GA can rank on actual performance.
-  // Only the last completed round's values are used for GA selection — this intentionally
-  // weights selection toward recent performance rather than averaged generation history.
-  const roundEndPortfolioValues = new Map<AgentId, number>(
-    state.agents.map((a) => [a.id, portfolioValue(a, state.market)]),
-  );
 
   const nextRound = state.round + 1;
   const isGenerationEnd = nextRound >= state.config.roundsPerGeneration;
 
   // Randomly rotate oracle for the next round so no fixed index is predictably privileged
-  let roundPrng = state.prng;
   let nextOracleIdx: number;
-  [roundPrng, nextOracleIdx] = nextInt(roundPrng, 0, state.agents.length - 1);
+  [roundPrng, nextOracleIdx] = nextInt(roundPrng, 0, agentsAfterReplacement.length - 1);
 
   // Reset portfolios and assign new oracle for next round
-  const resetAgents: Agent[] = state.agents.map((a, i) => ({
+  const resetAgents: Agent[] = agentsAfterReplacement.map((a, i) => ({
     ...a,
     isOracle: i === nextOracleIdx,
     portfolio: { cash: state.config.startingCapital, positions: new Map() },
@@ -209,6 +222,7 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
     ...state,
     round: nextRound,
     tick: 0,
+    agentEpoch: nextEpoch,
     market: createMarket(state.config),
     agents: resetAgents,
     oracleStates: resetOracleStates,
@@ -226,11 +240,13 @@ export function resolveRound(state: GameState): [GameState, RoundResult] {
 export function resolveGeneration(state: GameState): GameState {
   if (state.phase !== 'generationEnd') return state;
 
+  const nextEpoch = state.agentEpoch + 1;
   const [newAgents, newPrng] = evolveGeneration(
     state.agents,
     state.config,
     state.roundEndPortfolioValues,
     state.prng,
+    nextEpoch,
   );
 
   const oracleStates = new Map<AgentId, OracleState>();
@@ -248,6 +264,7 @@ export function resolveGeneration(state: GameState): GameState {
     generation: nextGeneration,
     round: 0,
     tick: 0,
+    agentEpoch: nextEpoch,
     market: createMarket(state.config),
     agents: newAgents,
     oracleStates,

@@ -9,6 +9,7 @@ import { TradeFeed } from './components/TradeFeed';
 import { AuditorPanel } from './components/AuditorPanel';
 import { SimControls } from './components/SimControls';
 import { RoundSummary } from './components/RoundSummary';
+import { RoundHistoryPanel } from './components/RoundHistoryPanel';
 
 const PANEL_STYLE: React.CSSProperties = {
   background: '#13131f',
@@ -99,11 +100,20 @@ function App() {
           tick={state.tick}
           round={state.round}
           generation={state.generation}
+          autoContinue={sim.autoContinue}
+          onAutoContinueChange={sim.setAutoContinue}
         />
       </div>
 
-      {atRoundEnd && sim.roundSummary !== null && (
+      {atRoundEnd && !sim.autoContinue && sim.roundSummary !== null && (
         <RoundSummary summary={sim.roundSummary} onContinue={sim.continueRound} />
+      )}
+
+      {sim.roundHistory.length > 0 && (
+        <div style={{ ...PANEL_STYLE, marginTop: 12 }}>
+          <PanelLabel>Round History</PanelLabel>
+          <RoundHistoryPanel history={sim.roundHistory} />
+        </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>

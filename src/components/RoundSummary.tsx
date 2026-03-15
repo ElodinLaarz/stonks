@@ -7,8 +7,17 @@ interface Props {
 }
 
 export function RoundSummary({ summary, onContinue }: Props) {
-  const { round, generation, accusedId, oracleId, oracleCaught, rankedAgents, isLastRound } =
-    summary;
+  const {
+    round,
+    generation,
+    accusedId,
+    oracleId,
+    oracleCaught,
+    rankedAgents,
+    isLastRound,
+    replacedAgentIds,
+  } = summary;
+  const replacedSet = new Set(replacedAgentIds);
 
   return (
     <div
@@ -67,32 +76,46 @@ export function RoundSummary({ summary, onContinue }: Props) {
           >
             Final Rankings
           </div>
-          {rankedAgents.map(({ agentId, value, originalIndex, isOracle }, i) => {
-            const agentColor = AGENT_COLORS[originalIndex % AGENT_COLORS.length]!;
-            return (
-              <div
-                key={agentId}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '2px 0',
-                  fontSize: 11,
-                }}
-              >
-                <span>
-                  <span style={{ color: '#555', marginRight: 6 }}>#{i + 1}</span>
-                  <span style={{ color: agentColor }}>
-                    {agentId.slice(0, 12)}
-                    {isOracle && ' ★'}
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {rankedAgents.map(({ agentId, value, originalIndex, isOracle }, i) => {
+              const isReplaced = replacedSet.has(agentId);
+              const agentColor = isReplaced
+                ? '#444'
+                : AGENT_COLORS[originalIndex % AGENT_COLORS.length]!;
+              return (
+                <div
+                  key={agentId}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '2px 0',
+                    fontSize: 11,
+                    opacity: isReplaced ? 0.5 : 1,
+                  }}
+                >
+                  <span>
+                    <span style={{ color: '#555', marginRight: 6 }}>#{i + 1}</span>
+                    <span
+                      style={{
+                        color: agentColor,
+                        textDecoration: isReplaced ? 'line-through' : 'none',
+                      }}
+                    >
+                      {agentId.slice(0, 14)}
+                      {isOracle && ' ★'}
+                    </span>
+                    {accusedId === agentId && (
+                      <span style={{ color: THEME.danger, marginLeft: 4 }}>[accused]</span>
+                    )}
+                    {isReplaced && (
+                      <span style={{ color: '#555', marginLeft: 4, fontSize: 10 }}>[culled]</span>
+                    )}
                   </span>
-                  {accusedId === agentId && (
-                    <span style={{ color: THEME.danger, marginLeft: 4 }}>[accused]</span>
-                  )}
-                </span>
-                <span style={{ color: '#ddd' }}>${value.toFixed(0)}</span>
-              </div>
-            );
-          })}
+                  <span style={{ color: isReplaced ? '#444' : '#ddd' }}>${value.toFixed(0)}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Oracle / Auditor outcome */}
@@ -111,12 +134,12 @@ export function RoundSummary({ summary, onContinue }: Props) {
           <div style={{ fontSize: 11, lineHeight: '1.8' }}>
             <div>
               <span style={{ color: '#555' }}>Oracle: </span>
-              <span style={{ color: THEME.warning }}>{oracleId?.slice(0, 12) ?? '—'}</span>
+              <span style={{ color: THEME.warning }}>{oracleId?.slice(0, 14) ?? '—'}</span>
             </div>
             <div>
               <span style={{ color: '#555' }}>Accused: </span>
               <span style={{ color: accusedId ? THEME.danger : '#555' }}>
-                {accusedId?.slice(0, 12) ?? 'nobody'}
+                {accusedId?.slice(0, 14) ?? 'nobody'}
               </span>
             </div>
             <div style={{ marginTop: 4 }}>
@@ -126,8 +149,12 @@ export function RoundSummary({ summary, onContinue }: Props) {
                 <span style={{ color: THEME.danger, fontWeight: 'bold' }}>✗ ORACLE ESCAPED</span>
               )}
             </div>
+            <div style={{ marginTop: 4, color: '#555', fontSize: 10 }}>
+              {replacedAgentIds.length} agent{replacedAgentIds.length !== 1 ? 's' : ''} culled this
+              round
+            </div>
             {isLastRound && (
-              <div style={{ marginTop: 6, color: THEME.warning, fontSize: 10 }}>
+              <div style={{ marginTop: 4, color: THEME.warning, fontSize: 10 }}>
                 Genetic algorithm will evolve agents on Continue.
               </div>
             )}

@@ -19,6 +19,8 @@ export interface RoundSummaryData {
   oracleCaught: boolean;
   rankedAgents: AgentRankEntry[];
   isLastRound: boolean;
+  /** IDs of agents being culled at the end of this round. */
+  replacedAgentIds: readonly AgentId[];
 }
 
 export interface SimulationControls {
@@ -26,8 +28,12 @@ export interface SimulationControls {
   isRunning: boolean;
   /** Live accusation derived from current suspicion scores (null until there is positive evidence). */
   currentAccusation: AgentId | null;
-  /** Non-null only when phase === 'roundEnd'. Pre-computed for display without engine imports in components. */
+  /** Non-null only when phase === 'roundEnd' and autoContinue is false. Pre-computed for display without engine imports in components. */
   roundSummary: RoundSummaryData | null;
+  /** Ordered oldest-first history of completed rounds. */
+  roundHistory: readonly RoundSummaryData[];
+  autoContinue: boolean;
+  setAutoContinue: (v: boolean) => void;
   start: () => void;
   pause: () => void;
   reset: () => void;
@@ -53,6 +59,14 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
   speedRef.current = speed;
   const [roundEndData, setRoundEndData] = useState<RoundEndData | null>(null);
   const roundEndDataRef = useRef<RoundEndData | null>(null);
+  const [autoContinue, setAutoContinue] = useState(false);
+  const autoContinueRef = useRef(false);
+  const [roundHistory, setRoundHistory] = useState<readonly RoundSummaryData[]>([]);
+
+  const handleSetAutoContinue = useCallback((v: boolean) => {
+    autoContinueRef.current = v;
+    setAutoContinue(v);
+  }, []);
 
   const advanceState = useCallback((state: GameState): GameState => {
     // roundEnd is NOT auto-resolved here — the loop stops so the UI can show a round summary.
@@ -79,6 +93,7 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
       oracleCaught: result.auditorCorrect,
       rankedAgents,
       isLastRound: result.round + 1 >= state.config.roundsPerGeneration,
+      replacedAgentIds: result.replacedAgentIds,
     };
     return { summary, nextState };
   }, []);
@@ -107,21 +122,54 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
       if (ticksToDo > 0) {
         lastTimeRef.current = timestamp - (elapsed % msPerTick);
         let s = stateRef.current;
+        const newHistoryEntries: RoundSummaryData[] = [];
         for (let i = 0; i < ticksToDo; i++) {
-          if (s.phase === 'finished' || s.phase === 'roundEnd') break;
-          s = advanceState(s);
+          if (s.phase === 'finished') break;
+          if (s.phase === 'roundEnd') {
+            const data = buildRoundEndData(s);
+            if (autoContinueRef.current) {
+              newHistoryEntries.push(data.summary);
+              const next =
+                data.nextState.phase === 'generationEnd'
+                  ? resolveGeneration(data.nextState)
+                  : data.nextState;
+              s = next;
+              if (s.phase === 'finished') break;
+            } else {
+              if (roundEndDataRef.current === null) {
+                roundEndDataRef.current = data;
+                setRoundEndData(data);
+              }
+              break;
+            }
+          } else {
+            s = advanceState(s);
+          }
         }
-        stateRef.current = s;
-        if (s.phase === 'roundEnd' && roundEndDataRef.current === null) {
+        // If advanceState produced roundEnd on the last tick, the for-loop's
+        // start-of-iteration check never fired for it. Handle it now.
+        if (
+          s.phase === 'roundEnd' &&
+          !autoContinueRef.current &&
+          roundEndDataRef.current === null
+        ) {
           const data = buildRoundEndData(s);
           roundEndDataRef.current = data;
           setRoundEndData(data);
+        }
+        stateRef.current = s;
+        if (newHistoryEntries.length > 0) {
+          setRoundHistory((prev) => [...prev, ...newHistoryEntries]);
         }
         setSnapshot(s);
       }
 
       const phase = stateRef.current.phase;
-      if (phase === 'running' || phase === 'generationEnd') {
+      if (
+        phase === 'running' ||
+        phase === 'generationEnd' ||
+        (phase === 'roundEnd' && autoContinueRef.current)
+      ) {
         rafRef.current = requestAnimationFrame(loop);
       } else {
         // Pause at roundEnd (show summary) and stop at finished
@@ -146,6 +194,7 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     pause();
     roundEndDataRef.current = null;
     setRoundEndData(null);
+    setRoundHistory([]);
     const fresh = createGameState(configRef.current);
     stateRef.current = fresh;
     setSnapshot(fresh);
@@ -156,6 +205,9 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     // Use the pre-resolved next state if available (avoids re-running resolveRound).
     const data = roundEndDataRef.current;
     const resolved = data ? data.nextState : resolveRound(stateRef.current)[0];
+    if (data) {
+      setRoundHistory((prev) => [...prev, data.summary]);
+    }
     roundEndDataRef.current = null;
     setRoundEndData(null);
     // Auto-resolve generationEnd so the GA runs without a second pause.
@@ -178,13 +230,30 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
       pause();
       roundEndDataRef.current = null;
       setRoundEndData(null);
-      const fresh = createGameState(config);
-      stateRef.current = fresh;
-      setSnapshot(fresh);
+      setRoundHistory([]);
+      try {
+        const fresh = createGameState(config);
+        stateRef.current = fresh;
+        setSnapshot(fresh);
+      } catch {
+        // Invalid config (e.g. numAgents < 2 while user is mid-edit); keep current state.
+      }
     }
   }, [config, pause]);
 
   useEffect(() => () => pause(), [pause]);
+
+  // When autoContinue is switched on while already paused at roundEnd, kick the loop.
+  useEffect(() => {
+    if (autoContinue && stateRef.current.phase === 'roundEnd' && !isRunningRef.current) {
+      roundEndDataRef.current = null;
+      setRoundEndData(null);
+      isRunningRef.current = true;
+      lastTimeRef.current = null;
+      setIsRunning(true);
+      rafRef.current = requestAnimationFrame(loop);
+    }
+  }, [autoContinue, loop]);
 
   const currentAccusation = useMemo(() => makeAccusation(snapshot.auditor), [snapshot.auditor]);
 
@@ -198,6 +267,9 @@ export function useSimulation(config: SimConfig, speed: number = 10): Simulation
     isRunning,
     currentAccusation,
     roundSummary,
+    roundHistory,
+    autoContinue,
+    setAutoContinue: handleSetAutoContinue,
     start,
     pause,
     reset,
