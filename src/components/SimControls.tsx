@@ -6,6 +6,7 @@ interface Props {
   start: () => void;
   pause: () => void;
   reset: () => void;
+  continueRound: () => void;
   speed: number;
   onSpeedChange: (speed: number) => void;
   config: SimConfig;
@@ -45,6 +46,7 @@ export function SimControls({
   start,
   pause,
   reset,
+  continueRound,
   speed,
   onSpeedChange,
   config,
@@ -54,17 +56,24 @@ export function SimControls({
   round,
   generation,
 }: Props) {
+  const atRoundEnd = phase === 'roundEnd';
   return (
     <div
       style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: '8px 0' }}
     >
-      <button
-        style={{ ...BTN, background: isRunning ? '#555' : '#81c784', color: '#111' }}
-        onClick={isRunning ? pause : start}
-        disabled={phase === 'finished'}
-      >
-        {isRunning ? 'Pause' : 'Start'}
-      </button>
+      {atRoundEnd ? (
+        <button style={{ ...BTN, background: '#4fc3f7', color: '#111' }} onClick={continueRound}>
+          Continue →
+        </button>
+      ) : (
+        <button
+          style={{ ...BTN, background: isRunning ? '#555' : '#81c784', color: '#111' }}
+          onClick={isRunning ? pause : start}
+          disabled={phase === 'finished'}
+        >
+          {isRunning ? 'Pause' : 'Start'}
+        </button>
+      )}
       <button style={{ ...BTN, background: '#444', color: '#eee' }} onClick={reset}>
         Reset
       </button>

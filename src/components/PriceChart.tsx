@@ -17,7 +17,23 @@ export function PriceChart({ stocks, tick }: Props) {
     const ctx = canvas.getContext('2d');
     if (ctx === null) return;
 
-    const { width, height } = canvas;
+    // Scale canvas buffer to device pixel ratio to eliminate blur on HiDPI screens.
+    // Only resize the backing store when physical dimensions change — resizing resets
+    // the canvas and is expensive; setTransform is absolute so it never accumulates.
+    const dpr = window.devicePixelRatio ?? 1;
+    const cssW = canvas.clientWidth;
+    const cssH = canvas.clientHeight;
+    if (!cssW || !cssH) return;
+    const physW = Math.round(cssW * dpr);
+    const physH = Math.round(cssH * dpr);
+    if (canvas.width !== physW || canvas.height !== physH) {
+      canvas.width = physW;
+      canvas.height = physH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const width = cssW;
+    const height = cssH;
     ctx.clearRect(0, 0, width, height);
 
     if (stocks.length === 0) return;
@@ -30,6 +46,10 @@ export function PriceChart({ stocks, tick }: Props) {
         if (bar.close < minPrice) minPrice = bar.close;
         if (bar.close > maxPrice) maxPrice = bar.close;
       }
+    }
+    if (minPrice === Infinity) {
+      minPrice = 0;
+      maxPrice = 1;
     }
     if (minPrice === maxPrice) {
       maxPrice = minPrice + 1;
@@ -61,7 +81,7 @@ export function PriceChart({ stocks, tick }: Props) {
     // Max bars to show (use the longest stock's bars count)
     const maxBars = Math.max(...stocks.map((s) => s.bars.length));
 
-    // X-axis label (in lower portion of bottom padding)
+    // X-axis label
     ctx.textAlign = 'center';
     ctx.fillText(`Tick ${tick}`, pad.left + chartW / 2, height - 4);
 
@@ -82,7 +102,7 @@ export function PriceChart({ stocks, tick }: Props) {
       ctx.stroke();
     }
 
-    // Legend (in upper portion of bottom padding, above the tick label)
+    // Legend (above tick label)
     ctx.textAlign = 'left';
     let legendX = pad.left;
     for (let si = 0; si < stocks.length; si++) {
@@ -99,9 +119,13 @@ export function PriceChart({ stocks, tick }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      width={600}
-      height={200}
-      style={{ width: '100%', height: '200px', background: '#1a1a2e', borderRadius: 4 }}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '200px',
+        background: '#1a1a2e',
+        borderRadius: 4,
+      }}
     />
   );
 }
