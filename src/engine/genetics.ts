@@ -213,7 +213,14 @@ export function evolveGeneration(
   );
 
   const n = ranked.length;
-  const cullCount = Math.max(1, Math.floor(n * config.replacementRate));
+  let cullCount = Math.floor(n * config.replacementRate);
+  if (n > 1) {
+    // Clamp so that at least one agent is culled and at least one survives.
+    cullCount = Math.max(1, Math.min(n - 1, cullCount));
+  } else {
+    // With 0 or 1 agents, don't cull anything.
+    cullCount = 0;
+  }
   const survivors = ranked.slice(0, n - cullCount);
   const replacedIds = ranked.slice(n - cullCount).map((a) => a.id);
 
