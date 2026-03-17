@@ -13,8 +13,6 @@ import type {
   TradeAction,
 } from './types';
 
-const STYLE_MIMICRY_CHANCE = 0.5;
-
 function findBestFutureStock(currentMarket: MarketState, futureMarket: MarketState): StockId {
   let bestId = currentMarket.stocks[0]?.id ?? '';
   let bestReturn = -Infinity;
@@ -85,26 +83,6 @@ export function oracleDecideAction(
   const futPrice = futStock?.bars[futStock.bars.length - 1]?.close ?? 0;
   const idealAction: TradeAction = futPrice > currPrice ? 'buy' : 'sell';
 
-  // Style mimicry: blend toward target agent's last action
-  // (Implemented as a soft override — if target recently sold, flip to sell)
-  let finalAction = idealAction;
-  if (concealmentGenome.styleTarget !== null) {
-    let lastTargetAction: Trade | null = null;
-    for (let i = tradeLog.length - 1; i >= 0; i--) {
-      if (tradeLog[i]!.agentId === concealmentGenome.styleTarget) {
-        lastTargetAction = tradeLog[i]!;
-        break;
-      }
-    }
-    if (lastTargetAction !== null) {
-      let styleRoll: number;
-      [p, styleRoll] = nextFloat(p);
-      if (styleRoll < STYLE_MIMICRY_CHANCE) {
-        finalAction = lastTargetAction.action === 'hold' ? idealAction : lastTargetAction.action;
-      }
-    }
-  }
-
   // Delay jitter
   if (concealmentGenome.delayJitter > 0) {
     let delayTicks: number;
@@ -112,7 +90,7 @@ export function oracleDecideAction(
     if (delayTicks > 0) {
       const pendingAction: PendingOracleAction = {
         stockId: bestStockId,
-        action: finalAction,
+        action: idealAction,
         targetShares: 0,
         ticksRemaining: delayTicks,
       };
@@ -120,5 +98,5 @@ export function oracleDecideAction(
     }
   }
 
-  return [finalAction, bestStockId, oracleState, p];
+  return [idealAction, bestStockId, oracleState, p];
 }
