@@ -31,6 +31,11 @@ export function createGameState(config: SimConfig): GameState {
   if (config.numAgents < 2) {
     throw new Error(`config.numAgents must be at least 2, but got ${config.numAgents}`);
   }
+  if (config.roundsPerGeneration < 1) {
+    throw new Error(
+      `config.roundsPerGeneration must be at least 1, but got ${config.roundsPerGeneration}`,
+    );
+  }
   let prng = createPrng(config.seed);
 
   // Build canonical agents (shared genome/oracle identity across all rounds)
