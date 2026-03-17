@@ -56,7 +56,9 @@ function GenerationRow({ summary, index }: { summary: GenerationSummaryData; ind
 
   return (
     <div>
-      <div
+      <button
+        type="button"
+        aria-expanded={expanded}
         style={{ ...ROW_BASE, background: index % 2 === 0 ? '#0f0f1e' : '#12121f' }}
         onClick={() => setExpanded((v) => !v)}
       >
@@ -112,11 +114,11 @@ function GenerationRow({ summary, index }: { summary: GenerationSummaryData; ind
           >
             ~{escapedCount}
           </span>
-        </span>
+        <span style={{ color: '#666', minWidth: 40 }}>G{generation}        </span>
         <span style={{ color: '#444', minWidth: 50, textAlign: 'right' }}>
           −{replacedAgentIds.length} culled
         </span>
-      </div>
+      </button>
 
       {expanded && (
         <div
