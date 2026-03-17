@@ -166,6 +166,11 @@ export interface GameState {
   /** All parallel rounds running simultaneously this generation. */
   readonly rounds: readonly RoundState[];
   /** Fitness aggregated across all rounds at generation end, used by the GA. */
+  readonly generationFitness: ReadonlyMap<AgentId, number>;
+  /**
+   * @deprecated This no longer represents per-round portfolio values.
+   * Use {@link GameState.generationFitness} for aggregated per-generation fitness.
+   */
   readonly roundEndPortfolioValues: ReadonlyMap<AgentId, number>;
   readonly prng: PrngState;
   readonly config: SimConfig;
