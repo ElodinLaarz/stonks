@@ -44,7 +44,7 @@ npm run build      # Production build
 | `engine/oracle.ts`   | PRNG-forked lookahead; delay jitter queue; noise gate delegates to `selectAndDecide` to match regular-agent behavior                                                                                                             |
 | `engine/auditor.ts`  | Incremental suspicion scoring across ticks and parallel rounds (only agents with new trades are rescored per tick); aggregates behavior over a generation and exposes `makeAccusation` at generation resolution                  |
 | `engine/genetics.ts` | Fitness-based selection with configurable survivor count; uniform crossover via `pickFrom`; per-gene mutation via `maybeMutateNumber`; stable agent ID handling decoupled from PRNG                                              |
-| `engine/gameLoop.ts` | `createGameState` / `tickGame` / `resolveGeneration`; supports multiple rounds running in parallel per generation; phase FSM: `running → generationEnd → finished`; `tradeLog` and `portfolioHistory` append in-place (O(1))    |
+| `engine/gameLoop.ts` | `createGameState` / `tickGame` / `resolveGeneration`; supports multiple rounds running in parallel per generation; phase FSM: `running → generationEnd → finished`; `tradeLog` and `portfolioHistory` append in-place (O(1))     |
 
 **101 tests passing.** Determinism verified: fixed-seed runs produce identical output.
 

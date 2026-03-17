@@ -114,7 +114,7 @@ function GenerationRow({ summary, index }: { summary: GenerationSummaryData; ind
           >
             ~{escapedCount}
           </span>
-        <span style={{ color: '#666', minWidth: 40 }}>G{generation}        </span>
+        </span>
         <span style={{ color: '#444', minWidth: 50, textAlign: 'right' }}>
           −{replacedAgentIds.length} culled
         </span>

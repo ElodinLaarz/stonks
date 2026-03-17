@@ -68,6 +68,7 @@ export function createGameState(config: SimConfig): GameState {
     generation: 0,
     agentEpoch: 0,
     rounds,
+    generationFitness: new Map(),
     roundEndPortfolioValues: new Map(),
     prng,
     config,
